@@ -1,0 +1,329 @@
+"""
+Django middleware for enhanced Datadog tracing and logging.
+Copy this file to your project's middleware module and customize as needed.
+"""
+
+import uuid
+import time
+import logging
+from django.utils.deprecation import MiddlewareMixin
+from django.http import JsonResponse
+from django.conf import settings
+import ddtrace
+from ddtrace import tracer, Span
+from datadog import statsd
+
+logger = logging.getLogger(__name__)
+
+
+class RequestIDMiddleware(MiddlewareMixin):
+    """Add unique request ID to each request for tracing."""
+    
+    def process_request(self, request):
+        """Generate and set request ID."""
+        request.request_id = str(uuid.uuid4())
+        request.start_time = time.time()
+        
+        # Add request ID to Datadog span
+        span = tracer.current_span()
+        if span:
+            span.set_tag('http.request_id', request.request_id)
+        
+        return None
+    
+    def process_response(self, request, response):
+        """Add request ID to response headers."""
+        if hasattr(request, 'request_id'):
+            response['X-Request-ID'] = request.request_id
+        
+        return response
+
+
+class LoggingMiddleware(MiddlewareMixin):
+    """Enhanced logging middleware with Datadog integration."""
+    
+    def process_request(self, request):
+        """Log incoming request with trace context."""
+        span = tracer.current_span()
+        trace_id = span.trace_id if span else None
+        span_id = span.span_id if span else None
+        
+        logger.info(
+            'Request started',
+            extra={
+                'event_type': 'request_start',
+                'method': request.method,
+                'path': request.path,
+                'query_params': dict(request.GET),
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                'remote_addr': self.get_client_ip(request),
+                'request_id': getattr(request, 'request_id', None),
+                'trace_id': trace_id,
+                'span_id': span_id,
+                'service': getattr(settings, 'DATADOG_TRACE', {}).get('service', 'grv-api'),
+                'env': getattr(settings, 'DATADOG_TRACE', {}).get('env', 'prod'),
+            }
+        )
+        
+        return None
+    
+    def process_response(self, request, response):
+        """Log response with performance metrics."""
+        if hasattr(request, 'start_time'):
+            duration = (time.time() - request.start_time) * 1000  # Convert to ms
+            
+            span = tracer.current_span()
+            trace_id = span.trace_id if span else None
+            span_id = span.span_id if span else None
+            
+            # Send metrics to Datadog
+            statsd.histogram(
+                'django.request.duration',
+                duration,
+                tags=[
+                    f'method:{request.method}',
+                    f'path:{request.path}',
+                    f'status:{response.status_code}',
+                    f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                    f'service:grv-api',
+                ]
+            )
+            
+            # Log response
+            logger.info(
+                'Request completed',
+                extra={
+                    'event_type': 'request_complete',
+                    'method': request.method,
+                    'path': request.path,
+                    'status_code': response.status_code,
+                    'duration_ms': duration,
+                    'response_size': len(response.content) if hasattr(response, 'content') else 0,
+                    'request_id': getattr(request, 'request_id', None),
+                    'trace_id': trace_id,
+                    'span_id': span_id,
+                    'service': getattr(settings, 'DATADOG_TRACE', {}).get('service', 'grv-api'),
+                    'env': getattr(settings, 'DATADOG_TRACE', {}).get('env', 'prod'),
+                }
+            )
+        
+        return response
+    
+    def process_exception(self, request, exception):
+        """Log exceptions with full trace context."""
+        span = tracer.current_span()
+        trace_id = span.trace_id if span else None
+        span_id = span.span_id if span else None
+        
+        # Set error on span
+        if span:
+            span.set_tag('error', True)
+            span.set_tag('error.message', str(exception))
+            span.set_tag('error.type', type(exception).__name__)
+            span.set_tag('error.stack', traceback.format_exc())
+        
+        # Send error metrics
+        statsd.increment(
+            'django.request.error',
+            tags=[
+                f'method:{request.method}',
+                f'path:{request.path}',
+                f'error_type:{type(exception).__name__}',
+                f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                f'service:grv-api',
+            ]
+        )
+        
+        # Log exception
+        logger.error(
+            'Request exception',
+            extra={
+                'event_type': 'request_error',
+                'method': request.method,
+                'path': request.path,
+                'error_message': str(exception),
+                'error_type': type(exception).__name__,
+                'stack_trace': traceback.format_exc(),
+                'request_id': getattr(request, 'request_id', None),
+                'trace_id': trace_id,
+                'span_id': span_id,
+                'service': getattr(settings, 'DATADOG_TRACE', {}).get('service', 'grv-api'),
+                'env': getattr(settings, 'DATADOG_TRACE', {}).get('env', 'prod'),
+            },
+            exc_info=True
+        )
+        
+        return None
+    
+    def get_client_ip(self, request):
+        """Extract client IP address from request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+
+class UserContextMiddleware(MiddlewareMixin):
+    """Add user context to Datadog spans and logs."""
+    
+    def process_request(self, request):
+        """Add user information to current span."""
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            span = tracer.current_span()
+            if span:
+                span.set_tag('user.id', str(request.user.id))
+                span.set_tag('user.email', request.user.email)
+                span.set_tag('user.username', request.user.username)
+            
+            # Add user context to request for logging
+            request.user_context = {
+                'user_id': request.user.id,
+                'user_email': request.user.email,
+                'user_username': request.user.username,
+            }
+        else:
+            request.user_context = {
+                'user_id': None,
+                'user_email': None,
+                'user_username': None,
+            }
+        
+        return None
+
+
+class PerformanceMiddleware(MiddlewareMixin):
+    """Monitor application performance and send alerts."""
+    
+    def process_response(self, request, response):
+        """Check performance thresholds and send alerts."""
+        if hasattr(request, 'start_time'):
+            duration = (time.time() - request.start_time) * 1000  # Convert to ms
+            
+            # Check latency thresholds
+            p95_threshold = getattr(settings, 'LATENCY_P95_THRESHOLD', 2000)
+            p99_threshold = getattr(settings, 'LATENCY_P99_THRESHOLD', 5000)
+            
+            if duration > p99_threshold:
+                statsd.event(
+                    'High Latency Detected',
+                    f'Request to {request.path} took {duration:.2f}ms (threshold: {p99_threshold}ms)',
+                    alert_type='error',
+                    tags=[
+                        f'path:{request.path}',
+                        f'method:{request.method}',
+                        f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+            elif duration > p95_threshold:
+                statsd.event(
+                    'Elevated Latency',
+                    f'Request to {request.path} took {duration:.2f}ms (threshold: {p95_threshold}ms)',
+                    alert_type='warning',
+                    tags=[
+                        f'path:{request.path}',
+                        f'method:{request.method}',
+                        f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+            
+            # Check error rates
+            if response.status_code >= 500:
+                statsd.increment(
+                    'django.server_error',
+                    tags=[
+                        f'path:{request.path}',
+                        f'method:{request.method}',
+                        f'status:{response.status_code}',
+                        f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+            elif response.status_code >= 400:
+                statsd.increment(
+                    'django.client_error',
+                    tags=[
+                        f'path:{request.path}',
+                        f'method:{request.method}',
+                        f'status:{response.status_code}',
+                        f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+        
+        return response
+
+
+class SecurityMiddleware(MiddlewareMixin):
+    """Security monitoring and alerting."""
+    
+    def process_request(self, request):
+        """Monitor for suspicious activity."""
+        # Check for common attack patterns
+        suspicious_patterns = [
+            '../',  # Path traversal
+            '<script',  # XSS
+            'union select',  # SQL injection
+            'exec(',  # Code injection
+        ]
+        
+        request_data = f"{request.path} {request.GET.urlencode()} {request.body.decode('utf-8', errors='ignore')}"
+        
+        for pattern in suspicious_patterns:
+            if pattern.lower() in request_data.lower():
+                statsd.increment(
+                    'security.suspicious_request',
+                    tags=[
+                        f'pattern:{pattern}',
+                        f'path:{request.path}',
+                        f'ip:{self.get_client_ip(request)}',
+                        f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+                
+                statsd.event(
+                    'Suspicious Activity Detected',
+                    f'Pattern "{pattern}" detected in request to {request.path}',
+                    alert_type='warning',
+                    tags=[
+                        f'pattern:{pattern}',
+                        f'path:{request.path}',
+                        f'ip:{self.get_client_ip(request)}',
+                        f'env:{getattr(settings, "DATADOG_TRACE", {}).get("env", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+                
+                logger.warning(
+                    'Suspicious request detected',
+                    extra={
+                        'event_type': 'security_alert',
+                        'pattern': pattern,
+                        'path': request.path,
+                        'ip': self.get_client_ip(request),
+                        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                        'request_id': getattr(request, 'request_id', None),
+                        'service': getattr(settings, 'DATADOG_TRACE', {}).get('service', 'grv-api'),
+                        'env': getattr(settings, 'DATADOG_TRACE', {}).get('env', 'prod'),
+                    }
+                )
+                break
+        
+        return None
+    
+    def get_client_ip(self, request):
+        """Extract client IP address from request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+
+# Import traceback for exception handling
+import traceback

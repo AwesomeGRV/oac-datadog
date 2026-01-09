@@ -1,0 +1,97 @@
+init_config:
+
+instances:
+  - nginx_status_url: "{{ DD_NGINX_STATUS_URL | default('http://localhost:8080/nginx_status') }}"
+    tags:
+      - "service:{{ DD_SERVICE | default('grv-api') }}"
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "team:backend"
+      - "owner:grv-team"
+    
+    # Connection settings
+    timeout: 10
+    
+    # Custom metrics collection
+    collect_connections_metrics: true
+    collect_request_metrics: true
+    
+    # Log monitoring (if log path is provided)
+    log_processing_rules:
+      - type: multi_line
+        name: nginx_error_logs
+        pattern: \d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} \[\w+\]
+      
+      - type: exclude_at_match
+        name: exclude_health_checks
+        pattern: "GET /health HTTP/1.1\" 200"
+
+logs:
+  - type: file
+    path: "{{ DD_NGINX_LOG_PATH | default('/var/log/nginx/access.log') }}"
+    source: nginx
+    service: "{{ DD_SERVICE | default('grv-api') }}"
+    tags:
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "log_type:access"
+    processing_rules:
+      - type: grok_parser
+        name: nginx_access_parser
+        pattern: '%{IPORHOST:client_ip} - %{DATA:user} \[%{HTTPDATE:access_time}\] "%{WORD:http_method} %{DATA:url_path} HTTP/%{NUMBER:http_version}" %{NUMBER:response_code:int} %{NUMBER:response_time:float} "%{DATA:referrer}" "%{DATA:user_agent}"'
+      - type: date_processor
+        name: nginx_access_date
+        source_field: access_time
+        target_field: timestamp
+        formats:
+          - '%d/%b/%Y:%H:%M:%S %z'
+      - type: user_agent_parser
+        name: nginx_user_agent
+        source_field: user_agent
+        target_field: user_agent_parsed
+      - type: geo_ip_parser
+        name: nginx_geo_ip
+        source_field: client_ip
+        target_field: geoip
+      - type: category_processor
+        name: nginx_response_category
+        source_field: response_code
+        target_field: response_category
+        categories:
+          - category: success
+            value: 2
+          - category: redirect
+            value: 3
+          - category: client_error
+            value: 4
+          - category: server_error
+            value: 5
+
+  - type: file
+    path: "{{ DD_NGINX_ERROR_LOG_PATH | default('/var/log/nginx/error.log') }}"
+    source: nginx
+    service: "{{ DD_SERVICE | default('grv-api') }}"
+    tags:
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "log_type:error"
+    processing_rules:
+      - type: grok_parser
+        name: nginx_error_parser
+        pattern: '%{YEAR:year}/%{MONTHNUM:month}/%{MONTHDAY:day} %{TIME:time} \[%{LOGLEVEL:log_level}\] %{POSINT:pid}#%{POSINT:tid}: (\*%{NUMBER:connection_id} )?%{DATA:error_message}(, client: %{IPORHOST:client_ip})?(, server: %{IPORHOST:server})?(, request: "%{WORD:http_method} %{DATA:url_path} HTTP/%{NUMBER:http_version}")?(, upstream: "%{DATA:upstream}")?(, host: "%{DATA:host}")?'
+      - type: date_processor
+        name: nginx_error_date
+        source_field: time
+        target_field: timestamp
+        formats:
+          - '%H:%M:%S'
+      - type: category_processor
+        name: nginx_error_category
+        source_field: log_level
+        target_field: error_category
+        categories:
+          - category: error
+            value: error
+          - category: warn
+            value: warn
+          - category: info
+            value: info
+          - category: debug
+            value: debug

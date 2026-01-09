@@ -1,0 +1,43 @@
+# Datadog APM and Tracing
+ddtrace==2.12.0
+datadog==0.47.0
+
+# Django Integration
+django>=4.2.0,<5.0
+django-celery-beat==2.5.0
+django-celery-results==2.5.0
+
+# Celery
+celery==5.3.0
+redis==5.0.1
+kombu==5.3.4
+
+# Database
+psycopg2-binary==2.9.7
+django-redis==5.4.0
+
+# Logging and Monitoring
+structlog==23.2.0
+python-json-logger==2.0.7
+colorlog==6.8.0
+
+# Utilities
+python-dotenv==1.0.0
+requests==2.31.0
+pyyaml==6.0.1
+jinja2==3.1.2
+
+# Nginx
+nginx-config-parser==1.0.1
+
+# Development and Testing
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Production
+gunicorn==21.2.0
+uvicorn==0.24.0

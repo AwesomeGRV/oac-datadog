@@ -1,0 +1,65 @@
+init_config:
+
+instances:
+  - host: "{{ DD_REDIS_HOST | default('localhost') }}"
+    port: "{{ DD_REDIS_PORT | default('6379') }}"
+    db: "{{ DD_REDIS_DB | default('0') }}"
+    password: "{{ DD_REDIS_PASSWORD | default('') }}"
+    tags:
+      - "service:{{ DD_SERVICE | default('grv-api') }}"
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "team:backend"
+      - "owner:grv-team"
+    
+    # Connection settings
+    socket_timeout: 5
+    socket_connect_timeout: 5
+    
+    # Performance monitoring
+    collect_command_stats: true
+    collect_keyspace_stats: true
+    collect_connection_stats: true
+    
+    # Memory monitoring
+    collect_memory_stats: true
+    collect_persistence_stats: true
+    
+    # Replication monitoring (if applicable)
+    collect_replication_stats: true
+    
+    # Custom metrics for grv-api
+    keys:
+      # Celery queue monitoring
+      - pattern: "celery:*"
+        name: "celery_queue_length"
+        type: "gauge"
+        tags:
+          - "queue_type:celery"
+      
+      # User session monitoring
+      - pattern: "user:*:session"
+        name: "active_sessions"
+        type: "gauge"
+        tags:
+          - "data_type:session"
+      
+      # Cache hit patterns
+      - pattern: "cache:*:hits"
+        name: "cache_hits"
+        type: "counter"
+        tags:
+          - "metric_type:cache"
+      
+      # API rate limiting
+      - pattern: "ratelimit:*"
+        name: "rate_limit_counter"
+        type: "counter"
+        tags:
+          - "type:rate_limit"
+      
+      # Background job tracking
+      - pattern: "job:*:status"
+        name: "background_job_status"
+        type: "gauge"
+        tags:
+          - "job_type:background"

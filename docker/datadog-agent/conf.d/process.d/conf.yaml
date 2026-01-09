@@ -1,0 +1,91 @@
+init_config:
+
+instances:
+  # Monitor all processes for grv-api
+  - name: "*"
+    tags:
+      - "service:{{ DD_SERVICE | default('grv-api') }}"
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "team:backend"
+      - "owner:grv-team"
+    
+    # Process filtering
+    search_string:
+      - "python"
+      - "celery"
+      - "gunicorn"
+      - "uwsgi"
+      - "nginx"
+      - "postgres"
+      - "redis"
+    
+    # Collect detailed metrics
+    collect_children: true
+    collect_exact_match: true
+    
+    # Performance metrics
+    collect_cpu_time: true
+    collect_memory_rss: true
+    collect_memory_vms: true
+    collect_io: true
+    collect_open_file_descriptors: true
+    
+    # Custom process monitoring
+    process_include_metrics:
+      - "process.cpu.pct"
+      - "process.cpu.time"
+      - "process.mem.rss"
+      - "process.mem.vms"
+      - "process.mem.real"
+      - "process.io.read_bytes"
+      - "process.io.write_bytes"
+      - "process.io.read_count"
+      - "process.io.write_count"
+      - "process.threads"
+      - "process.fds"
+      - "process.voluntary_ctxt_switches"
+      - "process.involuntary_ctxt_switches"
+    
+    # Alert thresholds
+    cpu_check: true
+    cpu_threshold: 80.0
+    mem_check: true
+    io_check: true
+    
+    # Custom process groups
+    process_groups:
+      - name: grv-api-web
+        pattern: "gunicorn.*grv-api"
+        tags:
+          - "component:web"
+          - "process_group:web"
+      
+      - name: grv-api-celery-worker
+        pattern: "celery.*worker"
+        tags:
+          - "component:worker"
+          - "process_group:celery"
+      
+      - name: grv-api-celery-beat
+        pattern: "celery.*beat"
+        tags:
+          - "component:scheduler"
+          - "process_group:celery"
+      
+      - name: nginx
+        pattern: "nginx.*master"
+        tags:
+          - "component:proxy"
+          - "process_group:nginx"
+      
+      - name: postgres
+        pattern: "postgres.*-D"
+        tags:
+          - "component:database"
+          - "process_group:postgres"
+      
+      - name: redis
+        pattern: "redis-server"
+        tags:
+          - "component:cache"
+          - "process_group:redis"

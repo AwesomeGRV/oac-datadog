@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] Nginx 5xx Errors",
+  "type": "query alert",
+  "query": "sum(last_5m):sum:nginx.http.response.5xx{service:grv-api,env:prod} > 10",
+  "message": "High number of Nginx 5xx errors detected.\n\n5xx Errors: {{value}}\nEnvironment: {{env}}\nService: {{service}}\n\nAction: Check upstream service health and Nginx configuration.",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:nginx",
+    "severity:critical"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 30,
+    "escalation_message": "Nginx 5xx errors continue. Service may be unavailable.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 50,
+      "warning": 10,
+      "critical_recovery": 5,
+      "warning_recovery": 2
+    }
+  },
+  "priority": 2
+}

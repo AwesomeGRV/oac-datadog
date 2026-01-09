@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  # Datadog Agent
+  datadog-agent:
+    build:
+      context: ./datadog-agent
+      dockerfile: Dockerfile
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_APP_KEY=${DD_APP_KEY}
+      - DD_SITE=${DD_SITE:-datadoghq.com}
+      - DD_HOSTNAME=${DD_HOSTNAME:-auto}
+      - DD_TAGS=${DD_TAGS:-team:backend,owner:grv-team}
+      - DD_SERVICE=${DD_SERVICE:-grv-api}
+      - DD_ENV=${DD_ENV:-prod}
+      - DD_VERSION=${DD_VERSION:-v1.0.0}
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_LOGS_ENABLED=true
+      - DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL=true
+      - DD_CONTAINER_EXCLUDE=name:dd-agent
+      - DD_AC_INCLUDE=true
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_POSTGRES_HOST=${DD_POSTGRES_HOST:-postgres}
+      - DD_POSTGRES_PORT=${DD_POSTGRES_PORT:-5432}
+      - DD_POSTGRES_USER=${DD_POSTGRES_USER:-grv_user}
+      - DD_POSTGRES_PASSWORD=${DD_POSTGRES_PASSWORD}
+      - DD_POSTGRES_DB=${DD_POSTGRES_DB:-grv_prod}
+      - DD_REDIS_HOST=${DD_REDIS_HOST:-redis}
+      - DD_REDIS_PORT=${DD_REDIS_PORT:-6379}
+      - DD_REDIS_PASSWORD=${DD_REDIS_PASSWORD}
+      - DD_NGINX_STATUS_URL=${DD_NGINX_STATUS_URL:-http://nginx:8080/nginx_status}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /var/log/:/var/log/:ro
+      - ./datadog-agent/conf.d:/etc/datadog-agent/conf.d:ro
+      - ./datadog-agent/checks.d:/etc/datadog-agent/checks.d:ro
+    ports:
+      - "8125:8125/udp"  # DogStatsD
+      - "8126:8126/tcp"  # Trace Agent
+    privileged: true
+    pid: host
+    networks:
+      - monitoring
+    depends_on:
+      - postgres
+      - redis
+      - nginx
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=${DD_POSTGRES_DB:-grv_prod}
+      - POSTGRES_USER=${DD_POSTGRES_USER:-grv_user}
+      - POSTGRES_PASSWORD=${DD_POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./examples/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - monitoring
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --requirepass ${DD_REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - monitoring
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/logs:/var/log/nginx
+      - ./nginx/status.conf:/etc/nginx/conf.d/status.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Nginx status
+    networks:
+      - monitoring
+    depends_on:
+      - grv-api
+
+  # Django Application (grv-api)
+  grv-api:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    environment:
+      - DD_SERVICE=grv-api
+      - DD_ENV=${DD_ENV:-prod}
+      - DD_VERSION=${DD_VERSION:-v1.0.0}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_SAMPLE_RATE=1.0
+      - DD_PROPAGATION_STYLE_EXTRACT=datadog
+      - DD_PROPAGATION_STYLE_INJECT=datadog
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-grv.settings.prod}
+      - DATABASE_URL=postgresql://${DD_POSTGRES_USER:-grv_user}:${DD_POSTGRES_PASSWORD}@postgres:5432/${DD_POSTGRES_DB:-grv_prod}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../:/app
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    networks:
+      - monitoring
+    depends_on:
+      - postgres
+      - redis
+      - datadog-agent
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    command: celery -A grv worker -l info
+    environment:
+      - DD_SERVICE=grv-api
+      - DD_ENV=${DD_ENV:-prod}
+      - DD_VERSION=${DD_VERSION:-v1.0.0}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_SAMPLE_RATE=1.0
+      - DD_PROPAGATION_STYLE_EXTRACT=datadog
+      - DD_PROPAGATION_STYLE_INJECT=datadog
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-grv.settings.prod}
+      - DATABASE_URL=postgresql://${DD_POSTGRES_USER:-grv_user}:${DD_POSTGRES_PASSWORD}@postgres:5432/${DD_POSTGRES_DB:-grv_prod}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../:/app
+      - ./logs:/app/logs
+    networks:
+      - monitoring
+    depends_on:
+      - postgres
+      - redis
+      - datadog-agent
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    command: celery -A grv beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DD_SERVICE=grv-api
+      - DD_ENV=${DD_ENV:-prod}
+      - DD_VERSION=${DD_VERSION:-v1.0.0}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_SAMPLE_RATE=1.0
+      - DD_PROPAGATION_STYLE_EXTRACT=datadog
+      - DD_PROPAGATION_STYLE_INJECT=datadog
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-grv.settings.prod}
+      - DATABASE_URL=postgresql://${DD_POSTGRES_USER:-grv_user}:${DD_POSTGRES_PASSWORD}@postgres:5432/${DD_POSTGRES_DB:-grv_prod}
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../:/app
+      - ./logs:/app/logs
+    networks:
+      - monitoring
+    depends_on:
+      - postgres
+      - redis
+      - datadog-agent
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  monitoring:
+    driver: bridge

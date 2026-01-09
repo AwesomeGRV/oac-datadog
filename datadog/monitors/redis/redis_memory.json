@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] Redis Memory Usage",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:redis.mem.used_percent{service:grv-api,env:prod} > {{.Env.REDIS_MEMORY_THRESHOLD | default \"80\"}}",
+  "message": "High Redis memory usage detected.\n\nMemory Usage: {{value}}%\nEnvironment: {{env}}\nService: {{service}}\n\nAction: Check for memory leaks and consider increasing memory or optimizing data structures.",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:redis",
+    "severity:warning"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Redis memory usage remains high. Risk of eviction or OOM.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 90,
+      "warning": 80,
+      "critical_recovery": 70,
+      "warning_recovery": 60
+    }
+  },
+  "priority": 3
+}

@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] Celery Queue Backlog",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:celery.queue.length{service:grv-api,env:prod}.by('queue') > {{.Env.CELERY_QUEUE_BACKLOG_THRESHOLD | default \"100\"}}",
+  "message": "High queue backlog detected for Celery.\n\nQueue: {{queue.name}}\nBacklog: {{value}} tasks\nEnvironment: {{env}}\nService: {{service}}\n\nAction: Check worker health and consider scaling workers.",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:celery",
+    "severity:warning"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Queue backlog continues to grow. Background jobs are not being processed fast enough.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 500,
+      "warning": 100,
+      "critical_recovery": 50,
+      "warning_recovery": 20
+    }
+  },
+  "priority": 3
+}

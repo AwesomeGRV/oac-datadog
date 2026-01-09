@@ -1,0 +1,106 @@
+init_config:
+
+instances:
+  # Collect all container metrics
+  - collect_all: true
+    tags:
+      - "service:{{ DD_SERVICE | default('grv-api') }}"
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "team:backend"
+      - "owner:grv-team"
+    
+    # Container filtering
+    include:
+      - "image:grv-api"
+      - "image:postgres"
+      - "image:redis"
+      - "image:nginx"
+      - "name:celery-*"
+    
+    exclude:
+      - "name:dd-agent"
+      - "image:datadog/agent"
+    
+    # Performance monitoring
+    collect_container_size: true
+    collect_image_size: true
+    collect_events: true
+    
+    # Resource monitoring
+    collect_cpu_percent: true
+    collect_memory_percent: true
+    collect_network_io: true
+    collect_disk_io: true
+    
+    # Custom metrics for grv-api containers
+    container_include_metrics:
+      - "container.cpu.user"
+      - "container.cpu.system"
+      - "container.cpu.throttled"
+      - "container.memory.usage"
+      - "container.memory.limit"
+      - "container.memory.failcnt"
+      - "container.network.io.rx"
+      - "container.network.io.tx"
+      - "container.disk.io.read"
+      - "container.disk.io.write"
+      - "container.uptime"
+
+logs:
+  # Collect logs from all grv-api related containers
+  - type: docker
+    source: docker
+    service: "{{ DD_SERVICE | default('grv-api') }}"
+    tags:
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "team:backend"
+      - "owner:grv-team"
+    
+    # Container log collection
+    include_labels:
+      - "com.datadoghq.ad.check_names"
+      - "com.datadoghq.ad.init_configs"
+      - "com.datadoghq.ad.instances"
+    
+    # Log processing rules
+    processing_rules:
+      # Parse JSON logs from applications
+      - type: json_parser
+        name: docker_json_parser
+        is_enabled: true
+      
+      # Extract trace IDs from logs
+      - type: regex_processor
+        name: extract_trace_id
+        pattern: '"dd\.trace_id":"([^"]+)"'
+        target: dd.trace_id
+        replace: "\\1"
+      
+      # Extract span IDs from logs
+      - type: regex_processor
+        name: extract_span_id
+        pattern: '"dd\.span_id":"([^"]+)"'
+        target: dd.span_id
+        replace: "\\1"
+      
+      # Categorize log levels
+      - type: category_processor
+        name: log_level_categorizer
+        source_field: level
+        target_field: log_category
+        categories:
+          - category: error
+            value: ERROR
+          - category: warning
+            value: WARNING
+          - category: info
+            value: INFO
+          - category: debug
+            value: DEBUG
+      
+      # Mask sensitive data
+      - type: mask_processor
+        name: sensitive_data_masker
+        pattern: '(password|token|secret|key|authorization)["\s]*[:=]["\s]*[^"\s,}]+'
+        replace: '\\1": "***"'
+        replace_all: true

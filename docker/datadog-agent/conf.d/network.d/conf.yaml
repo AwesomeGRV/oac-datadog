@@ -1,0 +1,85 @@
+init_config:
+
+instances:
+  # Network performance monitoring
+  - collect_connection_state: true
+    tags:
+      - "service:{{ DD_SERVICE | default('grv-api') }}"
+      - "env:{{ DD_ENV | default('prod') }}"
+      - "team:backend"
+      - "owner:grv-team"
+    
+    # Network interfaces to monitor
+    interface_include:
+      - "eth*"
+      - "en*"
+      - "lo"
+    
+    # Connection monitoring
+    collect_connection_state: true
+    connection_state:
+      - "ESTABLISHED"
+      - "LISTEN"
+      - "TIME_WAIT"
+      - "CLOSE_WAIT"
+    
+    # Network metrics
+    network_include_metrics:
+      - "network.bytes_rcvd"
+      - "network.bytes_sent"
+      - "network.packets_in.count"
+      - "network.packets_out.count"
+      - "network.packets_in.error"
+      - "network.packets_out.error"
+      - "network.tcp.connections"
+      - "network.tcp.connections_established"
+      - "network.tcp.connections_listen"
+      - "network.tcp.connections_time_wait"
+      - "network.udp.connections"
+    
+    # Port monitoring for grv-api services
+    ports:
+      - port: 80
+        name: "nginx-http"
+        tags:
+          - "service:nginx"
+          - "protocol:http"
+      
+      - port: 443
+        name: "nginx-https"
+        tags:
+          - "service:nginx"
+          - "protocol:https"
+      
+      - port: 8000
+        name: "grv-api-web"
+        tags:
+          - "service:grv-api"
+          - "component:web"
+          - "protocol:http"
+      
+      - port: 5432
+        name: "postgres"
+        tags:
+          - "service:postgres"
+          - "component:database"
+          - "protocol:postgresql"
+      
+      - port: 6379
+        name: "redis"
+        tags:
+          - "service:redis"
+          - "component:cache"
+          - "protocol:redis"
+      
+      - port: 8125
+        name: "datadog-statsd"
+        tags:
+          - "service:datadog"
+          - "protocol:udp"
+      
+      - port: 8126
+        name: "datadog-trace"
+        tags:
+          - "service:datadog"
+          - "protocol:tcp"

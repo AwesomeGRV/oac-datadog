@@ -1,0 +1,329 @@
+"""
+Celery application configuration for grv-api with Datadog tracing.
+Copy this file to your project's celery_app.py and customize as needed.
+"""
+
+import os
+from celery import Celery
+from django.conf import settings
+import ddtrace
+from ddtrace import Pin, tracer
+from ddtrace.contrib.celery import patch_service
+
+# Set the default Django settings module for the 'celery' program.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'grv.settings.prod')
+
+# Initialize Celery app
+app = Celery('grv-api')
+
+# Configure Celery using Django settings
+app.config_from_object('django.conf:settings', namespace='CELERY')
+
+# Auto-discover tasks from all registered apps
+app.autodiscover_tasks()
+
+# Datadog Celery Integration
+patch_service(app)
+
+# Configure Datadog tracing for Celery
+@tracer.wrap(service='grv-api-celery', resource='celery_app')
+def configure_datadog_tracing():
+    """Configure Datadog tracing for Celery tasks."""
+    
+    # Set up service pin for Celery
+    Pin.override(app, service='grv-api-celery', app='grv-api')
+    
+    # Configure task tracing
+    app.conf.task_annotations = {
+        '*': {
+            'rate_limit': None,
+            'time_limit': 300,  # 5 minutes
+            'soft_time_limit': 280,  # 4 minutes 40 seconds
+            'max_retries': 3,
+            'default_retry_delay': 60,  # 1 minute
+            'track_started': True,
+        }
+    }
+    
+    # Custom task routing for better monitoring
+    app.conf.task_routes = {
+        'grv.core.tasks.*': {'queue': 'core'},
+        'grv.users.tasks.*': {'queue': 'users'},
+        'grv.api.tasks.*': {'queue': 'api'},
+        'grv.notifications.tasks.*': {'queue': 'notifications'},
+    }
+    
+    # Worker configuration for better observability
+    app.conf.worker_prefetch_multiplier = 1
+    app.conf.task_acks_late = True
+    app.conf.worker_max_tasks_per_child = 1000
+    app.conf.worker_disable_rate_limits = False
+
+# Apply Datadog configuration
+configure_datadog_tracing()
+
+# Custom task base class with enhanced tracing
+class TracedTask(app.Task):
+    """Base task class with enhanced Datadog tracing and error handling."""
+    
+    abstract = True
+    
+    def __call__(self, *args, **kwargs):
+        """Execute task with enhanced tracing."""
+        with tracer.trace(
+            'celery.task.execute',
+            service='grv-api-celery',
+            resource=self.name,
+            span_type='worker',
+        ) as span:
+            # Add task metadata to span
+            span.set_tag('task.name', self.name)
+            span.set_tag('task.queue', self.queue)
+            span.set_tag('task.args_count', len(args))
+            span.set_tag('task.kwargs_count', len(kwargs))
+            span.set_tag('task.retry_count', self.request.retries)
+            
+            # Add service tags
+            span.set_tag('service', 'grv-api')
+            span.set_tag('env', os.getenv('DD_ENV', 'prod'))
+            span.set_tag('version', os.getenv('DD_VERSION', 'v1.0.0'))
+            
+            try:
+                result = super().__call__(*args, **kwargs)
+                span.set_tag('task.success', True)
+                return result
+            except Exception as exc:
+                span.set_tag('task.success', False)
+                span.set_tag('task.error', str(exc))
+                span.set_tag('task.error_type', type(exc).__name__)
+                raise
+    
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        """Handle task failure with enhanced logging."""
+        with tracer.trace('celery.task.failure', service='grv-api-celery'):
+            # Log failure with trace context
+            app.logger.error(
+                'Task failed',
+                extra={
+                    'task_id': task_id,
+                    'task_name': self.name,
+                    'error': str(exc),
+                    'error_type': type(exc).__name__,
+                    'args': args,
+                    'kwargs': kwargs,
+                    'trace_id': tracer.current_span().trace_id if tracer.current_span() else None,
+                    'service': 'grv-api',
+                    'env': os.getenv('DD_ENV', 'prod'),
+                }
+            )
+            
+            # Send failure metrics to Datadog
+            from datadog import statsd
+            statsd.increment(
+                'celery.task.failure',
+                tags=[
+                    f'task:{self.name}',
+                    f'error:{type(exc).__name__}',
+                    f'env:{os.getenv("DD_ENV", "prod")}',
+                    f'service:grv-api',
+                ]
+            )
+    
+    def on_success(self, retval, task_id, args, kwargs):
+        """Handle task success with metrics."""
+        from datadog import statsd
+        statsd.increment(
+            'celery.task.success',
+            tags=[
+                f'task:{self.name}',
+                f'env:{os.getenv("DD_ENV", "prod")}',
+                f'service:grv-api',
+            ]
+        )
+    
+    def on_retry(self, exc, task_id, args, kwargs, einfo):
+        """Handle task retry with enhanced logging."""
+        with tracer.trace('celery.task.retry', service='grv-api-celery'):
+            app.logger.warning(
+                'Task retrying',
+                extra={
+                    'task_id': task_id,
+                    'task_name': self.name,
+                    'error': str(exc),
+                    'retry_count': self.request.retries,
+                    'trace_id': tracer.current_span().trace_id if tracer.current_span() else None,
+                    'service': 'grv-api',
+                    'env': os.getenv('DD_ENV', 'prod'),
+                }
+            )
+
+# Set the custom task base class
+app.Task = TracedTask
+
+# Task decorators for enhanced monitoring
+def monitored_task(*args, **kwargs):
+    """Decorator for creating monitored Celery tasks."""
+    def decorator(func):
+        @app.task(bind=True, **kwargs)
+        @tracer.wrap(service='grv-api-celery', resource=f'task.{func.__name__}')
+        def wrapped(self, *task_args, **task_kwargs):
+            with tracer.trace(f'task.{func.__name__}', service='grv-api-celery'):
+                return func(self, *task_args, **task_kwargs)
+        return wrapped
+    return decorator
+
+# Queue monitoring task
+@app.task(bind=True, name='grv.core.tasks.monitor_queues')
+@monitored_task
+def monitor_queues(self):
+    """Monitor Celery queue lengths and send metrics to Datadog."""
+    from datadog import statsd
+    from kombu import Connection
+    
+    try:
+        with Connection(app.conf.broker_url) as conn:
+            with conn.channel() as channel:
+                for queue_name in app.conf.task_routes.values():
+                    queue = channel.queue_declare(queue_name, passive=True)
+                    queue_length = queue.message_count
+                    
+                    statsd.gauge(
+                        'celery.queue.length',
+                        queue_length,
+                        tags=[
+                            f'queue:{queue_name}',
+                            f'env:{os.getenv("DD_ENV", "prod")}',
+                            f'service:grv-api',
+                        ]
+                    )
+                    
+                    # Alert on high queue backlog
+                    if queue_length > int(os.getenv('CELERY_QUEUE_BACKLOG_THRESHOLD', '100')):
+                        statsd.event(
+                            'High Queue Backlog',
+                            f'Queue {queue_name} has {queue_length} pending tasks',
+                            alert_type='warning',
+                            tags=[
+                                f'queue:{queue_name}',
+                                f'env:{os.getenv("DD_ENV", "prod")}',
+                                f'service:grv-api',
+                            ]
+                        )
+    
+    except Exception as exc:
+        app.logger.error(f'Queue monitoring failed: {exc}')
+        raise self.retry(exc=exc, countdown=60)
+
+# Worker health check task
+@app.task(bind=True, name='grv.core.tasks.worker_health_check')
+@monitored_task
+def worker_health_check(self):
+    """Check Celery worker health and report to Datadog."""
+    from datadog import statsd
+    import psutil
+    
+    try:
+        # Get worker stats
+        inspect = app.control.inspect()
+        stats = inspect.stats()
+        
+        if stats:
+            for worker_name, worker_stats in stats.items():
+                # Worker pool metrics
+                pool = worker_stats.get('pool', {})
+                max_concurrency = pool.get('max-concurrency', 0)
+                active_processes = pool.get('processes', [])
+                active_count = len([p for p in active_processes if p.get('alive', False)])
+                
+                statsd.gauge(
+                    'celery.worker.active_processes',
+                    active_count,
+                    tags=[
+                        f'worker:{worker_name}',
+                        f'env:{os.getenv("DD_ENV", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+                
+                statsd.gauge(
+                    'celery.worker.max_concurrency',
+                    max_concurrency,
+                    tags=[
+                        f'worker:{worker_name}',
+                        f'env:{os.getenv("DD_ENV", "prod")}',
+                        f'service:grv-api',
+                    ]
+                )
+        
+        # System metrics
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory_percent = psutil.virtual_memory().percent
+        
+        statsd.gauge(
+            'celery.worker.cpu_percent',
+            cpu_percent,
+            tags=[
+                f'env:{os.getenv("DD_ENV", "prod")}',
+                f'service:grv-api',
+            ]
+        )
+        
+        statsd.gauge(
+            'celery.worker.memory_percent',
+            memory_percent,
+            tags=[
+                f'env:{os.getenv("DD_ENV", "prod")}',
+                f'service:grv-api',
+            ]
+        )
+    
+    except Exception as exc:
+        app.logger.error(f'Worker health check failed: {exc}')
+        raise self.retry(exc=exc, countdown=60)
+
+# Periodic task for monitoring
+app.conf.beat_schedule.update({
+    'monitor-queues': {
+        'task': 'grv.core.tasks.monitor_queues',
+        'schedule': 60.0,  # Every minute
+    },
+    'worker-health-check': {
+        'task': 'grv.core.tasks.worker_health_check',
+        'schedule': 300.0,  # Every 5 minutes
+    },
+})
+
+# Error handling and retry configuration
+@app.task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True)
+def error_handling_example(self, some_arg):
+    """Example task with comprehensive error handling."""
+    try:
+        # Your task logic here
+        result = some_arg * 2
+        
+        # Custom metrics
+        from datadog import statsd
+        statsd.histogram(
+            'celery.task.execution_time',
+            100,  # Replace with actual execution time
+            tags=[
+                f'task:{self.name}',
+                f'env:{os.getenv("DD_ENV", "prod")}',
+                f'service:grv-api',
+            ]
+        )
+        
+        return result
+    
+    except ValueError as exc:
+        # Specific handling for different error types
+        app.logger.error(f'ValueError in task: {exc}')
+        raise self.retry(exc=exc, countdown=60)
+    
+    except Exception as exc:
+        # Generic error handling
+        app.logger.error(f'Unexpected error in task: {exc}')
+        raise
+
+# Export the app for Django integration
+__all__ = ['app', 'TracedTask', 'monitored_task']

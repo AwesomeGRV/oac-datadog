@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] High Resource Usage",
+  "type": "query alert",
+  "query": "avg(last_10m):avg:docker.container.cpu.percent{service:grv-api,env:prod}.by('container_name') > {{.Env.CPU_THRESHOLD | default \"80.0\"}} OR avg(last_10m):avg:docker.container.memory.percent{service:grv-api,env:prod}.by('container_name') > {{.Env.MEMORY_THRESHOLD | default \"85.0\"}}",
+  "message": "High resource usage detected for grv-api containers.\n\nContainer: {{container_name}}\nCPU: {{docker.container.cpu.percent}}%\nMemory: {{docker.container.memory.percent}}%\nEnvironment: {{env}}\nService: {{service}}\n\nAction: Consider scaling resources or optimizing performance.",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:infrastructure",
+    "severity:warning"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Resource usage remains high. Performance may be degraded.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 95.0,
+      "warning": 80.0,
+      "critical_recovery": 70.0,
+      "warning_recovery": 60.0
+    }
+  },
+  "priority": 3
+}

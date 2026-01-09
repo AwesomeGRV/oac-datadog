@@ -1,0 +1,334 @@
+"""
+Django settings for grv-api with Datadog APM and logging integration.
+Copy this file to your project's settings module and customize as needed.
+"""
+
+import os
+import logging
+import json
+from datetime import datetime
+from pathlib import Path
+
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'your-secret-key-here')
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() == 'true'
+
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# Application definition
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    
+    # Third party apps
+    'django_celery_beat',
+    'django_celery_results',
+    
+    # Your apps
+    'grv.core',
+    'grv.api',
+    'grv.users',
+]
+
+MIDDLEWARE = [
+    # Datadog tracing middleware (must be first)
+    'ddtrace.contrib.django.TraceMiddleware',
+    
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
+    # Custom middleware
+    'grv.core.middleware.RequestIDMiddleware',
+    'grv.core.middleware.LoggingMiddleware',
+]
+
+ROOT_URLCONF = 'grv.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [BASE_DIR / 'templates'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = 'grv.wsgi.application'
+
+# Database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DD_POSTGRES_DB', 'grv_prod'),
+        'USER': os.getenv('DD_POSTGRES_USER', 'grv_user'),
+        'PASSWORD': os.getenv('DD_POSTGRES_PASSWORD', ''),
+        'HOST': os.getenv('DD_POSTGRES_HOST', 'localhost'),
+        'PORT': os.getenv('DD_POSTGRES_PORT', '5432'),
+        'OPTIONS': {
+            'connect_timeout': 10,
+            'application_name': 'grv-api',
+        },
+        # Datadog database tracing
+        'DATADOG_TRACE': {
+            'enabled': True,
+            'service': 'grv-api-db',
+            'trace_query_strings': True,
+        }
+    }
+}
+
+# Redis Configuration
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+
+# Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {
+                'max_connections': 50,
+                'retry_on_timeout': True,
+            }
+        },
+        'KEY_PREFIX': 'grv_cache',
+        'TIMEOUT': 300,  # 5 minutes default
+    }
+}
+
+# Celery Configuration
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TIMEZONE = 'UTC'
+
+CELERY_BEAT_SCHEDULE = {
+    'cleanup-sessions': {
+        'task': 'grv.core.tasks.cleanup_expired_sessions',
+        'schedule': 60.0 * 60,  # Every hour
+    },
+    'update-metrics': {
+        'task': 'grv.core.tasks.update_system_metrics',
+        'schedule': 300.0,  # Every 5 minutes
+    },
+}
+
+# Datadog Configuration
+DATADOG_TRACE = {
+    'enabled': True,
+    'service': os.getenv('DD_SERVICE', 'grv-api'),
+    'env': os.getenv('DD_ENV', 'prod'),
+    'version': os.getenv('DD_VERSION', 'v1.0.0'),
+    'agent_host': os.getenv('DD_AGENT_HOST', 'localhost'),
+    'agent_port': int(os.getenv('DD_TRACE_AGENT_PORT', '8126')),
+    'trace_sample_rate': float(os.getenv('DD_TRACE_SAMPLE_RATE', '1.0')),
+    'propagation_style_extract': 'datadog',
+    'propagation_style_inject': 'datadog',
+    'analytics_enabled': True,
+    'log_injection': True,
+    'distributed_tracing': True,
+}
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'json': {
+            '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            'format': '''
+                %(asctime)s %(name)s %(levelname)s %(message)s
+                %(pathname)s %(lineno)d %(funcName)s
+                trace_id=%(dd.trace_id)s span_id=%(dd.span_id)s
+                service=%(dd.service)s env=%(dd.env)s version=%(dd.version)s
+                request_id=%(request_id)s user_id=%(user_id)s
+            ''',
+        },
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+        'request_context': {
+            '()': 'grv.core.logging.RequestContextFilter',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'json',
+            'filters': ['request_context'],
+        },
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/app/logs/grv-api.log',
+            'maxBytes': 100 * 1024 * 1024,  # 100MB
+            'backupCount': 5,
+            'formatter': 'json',
+            'filters': ['request_context'],
+        },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/app/logs/grv-api-error.log',
+            'maxBytes': 50 * 1024 * 1024,  # 50MB
+            'backupCount': 5,
+            'formatter': 'json',
+            'filters': ['request_context'],
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'grv': {
+            'handlers': ['console', 'file', 'error_file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'celery': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'ddtrace': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+    'root': {
+        'handlers': ['console', 'file'],
+        'level': 'INFO',
+    },
+}
+
+# Security Settings
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_REDIRECT_EXEMPT = []
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+X_FRAME_OPTIONS = 'DENY'
+
+# Performance Settings
+USE_TZ = True
+USE_L10N = True
+USE_I18N = True
+
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# REST Framework (if using DRF)
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'grv.core.exceptions.custom_exception_handler',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
+}
+
+# Custom Settings
+GRV_API = {
+    'MAX_UPLOAD_SIZE': 10 * 1024 * 1024,  # 10MB
+    'DEFAULT_PAGE_SIZE': 20,
+    'MAX_PAGE_SIZE': 100,
+    'CACHE_TIMEOUT': 300,  # 5 minutes
+    'SESSION_TIMEOUT': 3600,  # 1 hour
+    'RATE_LIMIT_WINDOW': 3600,  # 1 hour
+    'RATE_LIMIT_REQUESTS': 1000,
+}
+
+# Health Check Configuration
+HEALTH_CHECK = {
+    'DISK_USAGE_MAX': 90,  # percent
+    'MEMORY_MIN': 100,     # MB
+    'DATABASE_TIMEOUT': 5,  # seconds
+    'CACHE_TIMEOUT': 2,     # seconds
+}
+
+# Monitoring and Metrics
+METRICS_ENABLED = True
+METRICS_SAMPLE_RATE = float(os.getenv('DD_TRACE_SAMPLE_RATE', '1.0'))
+
+# Error Reporting
+ERROR_REPORTING = {
+    'enabled': True,
+    'sample_rate': 1.0,
+    'ignore_exceptions': [
+        'django.http.Http404',
+        'django.core.exceptions.PermissionDenied',
+    ],
+}
+
+# Deployment Information
+DEPLOY_INFO = {
+    'timestamp': datetime.utcnow().isoformat(),
+    'version': os.getenv('DD_VERSION', 'v1.0.0'),
+    'environment': os.getenv('DD_ENV', 'prod'),
+    'service': os.getenv('DD_SERVICE', 'grv-api'),
+    'git_commit': os.getenv('GIT_COMMIT', 'unknown'),
+    'build_number': os.getenv('BUILD_NUMBER', 'unknown'),
+}
