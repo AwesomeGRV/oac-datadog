@@ -32,7 +32,12 @@ Complete production-level observability-as-code implementation for Datadog monit
 │   ├── monitors/               # Monitor definitions
 │   │   ├── apm/               # APM monitors
 │   │   ├── logs/              # Log monitors
-│   │   └── infrastructure/    # Infrastructure monitors
+│   │   ├── security/          # Security monitors
+│   │   ├── database/          # Database monitors
+│   │   ├── infrastructure/    # Infrastructure monitors
+│   │   ├── celery/            # Celery monitors
+│   │   ├── nginx/             # Nginx monitors
+│   │   └── redis/             # Redis monitors
 │   ├── dashboards/             # Dashboard configurations
 │   └── pipelines/              # Log processing pipelines
 ├── docker/                     # Docker configurations
@@ -43,9 +48,58 @@ Complete production-level observability-as-code implementation for Datadog monit
 │   ├── celery/                # Celery integration examples
 │   └── logging/               # Logging configuration examples
 ├── scripts/                    # Deployment and utility scripts
+│   ├── deploy-monitors.sh     # Monitor deployment script
+│   ├── send-deploy-event.py   # Deployment event script
+│   ├── test-observability.py  # Comprehensive testing script
+│   ├── security-monitoring.py # Real-time security monitoring
+│   ├── alert-automation.py    # Advanced alert automation
+│   ├── cost-optimization.py   # Cost control and optimization
+│   └── performance-optimization.py # Performance tuning
+├── config/                     # Configuration files
+│   ├── security-config.json   # Security monitoring configuration
+│   ├── alert-automation.json  # Alert automation settings
+│   ├── cost-optimization.json # Cost optimization settings
+│   └── performance-optimization.json # Performance settings
 ├── kubernetes/                 # K8s manifests (if applicable)
 └── docs/                       # Documentation
+    ├── operational-runbooks.md # Incident response procedures
+    ├── deployment-guide.md    # Production deployment guide
+    └── best-practices.md      # Best practices guide
 ```
+
+## Production-Grade Enhancements
+
+This observability setup has been enhanced with enterprise-grade features for production deployment:
+
+###  Advanced Security Monitoring
+- **Real-time threat detection**: SQL injection, XSS, brute force attacks
+- **Automated IP blocking**: Immediate response to security threats
+- **Compliance monitoring**: GDPR, PCI, HIPAA compliance checks
+- **Security event correlation**: Advanced pattern recognition
+
+###  Intelligent Alert Automation
+- **Automated incident response**: Service restarts, scaling, rollbacks
+- **Smart escalation policies**: Multi-level notification systems
+- **Incident auto-creation**: Automatic Jira ticket generation
+- **Postmortem automation**: Comprehensive incident documentation
+
+###  Performance Optimization
+- **Automated performance tuning**: Database, cache, application optimization
+- **Predictive scaling**: ML-based resource allocation
+- **Performance baselines**: Continuous performance monitoring
+- **Capacity planning**: Proactive resource management
+
+###  Cost Control & Optimization
+- **Automated cost optimization**: Log sampling, metric filtering
+- **Budget monitoring**: Real-time cost tracking and alerts
+- **Usage analysis**: Detailed cost breakdown by category
+- **Optimization recommendations**: Actionable cost-saving insights
+
+###  Comprehensive Documentation
+- **Operational runbooks**: Step-by-step incident response guides
+- **Deployment best practices**: Production deployment procedures
+- **Troubleshooting guides**: Common issues and solutions
+- **Training materials**: Team onboarding and certification
 
 ## Quick Start
 
@@ -79,25 +133,35 @@ cp examples/django/settings.py.example your_project/settings.py
 cp examples/celery/celery_app.py.example your_project/celery_app.py
 ```
 
-### 4. Deploy Monitors and Dashboards
+### 4. Deploy Enhanced Monitoring
 ```bash
-# Deploy all monitors
+# Deploy all monitors including security and performance
 ./scripts/deploy-monitors.sh
 
-# Deploy dashboards
-./scripts/deploy-dashboards.sh
+# Deploy security monitoring
+python scripts/security-monitoring.py &
+
+# Deploy alert automation
+python scripts/alert-automation.py &
+
+# Deploy cost optimization
+python scripts/cost-optimization.py &
+
+# Deploy performance optimization
+python scripts/performance-optimization.py &
 ```
 
-### 5. Verify Setup
+### 5. Test Setup
 ```bash
-# Test tracing
-python scripts/test-tracing.py
+# Run comprehensive tests
+python scripts/test-observability.py
 
-# Test logging
-python scripts/test-logging.py
-
-# Check agent status
-docker exec datadog-agent agent status
+# Send test deployment event
+python scripts/send-deploy-event.py \
+    --api-key $DD_API_KEY \
+    --app-key $DD_APP_KEY \
+    --version v1.0.0 \
+    --auto-git
 ```
 
 ## Configuration

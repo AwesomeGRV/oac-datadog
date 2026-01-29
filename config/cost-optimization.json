@@ -1,0 +1,136 @@
+{
+  "budget_limits": {
+    "monthly_total": 10000.0,
+    "logs": 3000.0,
+    "metrics": 2000.0,
+    "traces": 2500.0,
+    "custom_metrics": 1500.0,
+    "infrastructure": 1000.0
+  },
+  "optimization_rules": {
+    "log_sampling": {
+      "enabled": true,
+      "high_volume_threshold": 1000000,
+      "target_sample_rate": 0.1,
+      "excluded_patterns": [
+        "health_check",
+        "status_check",
+        "ping",
+        "heartbeat"
+      ],
+      "included_levels": [
+        "ERROR",
+        "WARNING",
+        "CRITICAL"
+      ]
+    },
+    "metric_retention": {
+      "enabled": true,
+      "custom_metrics_retention_days": 15,
+      "infrastructure_metrics_retention_days": 30,
+      "high_cardinality_threshold": 1000,
+      "unused_metric_threshold_days": 7
+    },
+    "trace_sampling": {
+      "enabled": true,
+      "high_traffic_threshold": 10000,
+      "adaptive_sampling": true,
+      "default_sample_rate": 0.1,
+      "error_sample_rate": 1.0,
+      "excluded_endpoints": [
+        "/health",
+        "/status",
+        "/ping",
+        "/metrics"
+      ]
+    },
+    "custom_metrics": {
+      "enabled": true,
+      "max_custom_metrics": 500,
+      "unused_metric_threshold_days": 7,
+      "high_frequency_threshold": 60,
+      "consolidation_enabled": true
+    }
+  },
+  "alerting": {
+    "cost_threshold_percentage": 80.0,
+    "daily_cost_report": true,
+    "weekly_optimization_report": true,
+    "monthly_budget_report": true,
+    "notification_channels": [
+      "slack",
+      "email"
+    ],
+    "escalation_thresholds": {
+      "warning": 80.0,
+      "critical": 95.0,
+      "emergency": 100.0
+    }
+  },
+  "automation": {
+    "auto_optimize": true,
+    "require_approval_for": [
+      "log_sampling",
+      "metric_deletion",
+      "trace_sampling_changes"
+    ],
+    "optimization_window": {
+      "start_hour": 2,
+      "end_hour": 4,
+      "timezone": "UTC",
+      "weekends_only": false
+    },
+    "max_automations_per_day": 5,
+    "rollback_enabled": true,
+    "testing_required": true
+  },
+  "performance_monitoring": {
+    "track_optimization_impact": true,
+    "measure_savings_accuracy": true,
+    "monitor_service_health": true,
+    "performance_thresholds": {
+      "latency_increase_threshold": 10,
+      "error_rate_increase_threshold": 5,
+      "availability_threshold": 99.9
+    }
+  },
+  "compliance": {
+    "audit_trail": true,
+    "retention_policy": {
+      "optimization_reports": 365,
+      "configuration_changes": 2555,
+      "cost_data": 2555
+    },
+    "approval_workflow": true,
+    "change_management": true
+  },
+  "cost_analysis": {
+    "trend_analysis": true,
+    "forecasting": true,
+    "anomaly_detection": true,
+    "benchmarking": true,
+    "cost_drivers": [
+      "log_volume",
+      "metric_count",
+      "trace_volume",
+      "infrastructure_size"
+    ]
+  },
+  "integration": {
+    "datadog_api": {
+      "base_url": "https://api.datadoghq.com",
+      "timeout": 30,
+      "retry_attempts": 3
+    },
+    "notification_services": {
+      "slack": {
+        "webhook_url": "{{.Env.SLACK_WEBHOOK_URL}}",
+        "channel": "#cost-optimization"
+      },
+      "email": {
+        "smtp_server": "{{.Env.SMTP_SERVER}}",
+        "recipients": "{{.Env.COST_EMAIL_RECIPIENTS}}"
+      }
+    }
+  }
+}

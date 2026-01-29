@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] SQL Injection Attack Detection",
+  "type": "log alert",
+  "query": "logs(\"service:grv-api env:prod (sql_injection OR union+select OR drop+table OR insert+into OR delete+from OR update+set OR ' OR 1=1 OR \\\" OR 1=1 OR ' OR 'a'='a OR \\\" OR \\\"a\\\"=\\\"a)\").rollup(\"count\", 300) > 0",
+  "message": "Potential SQL injection attack detected for grv-api service.\n\nEnvironment: {{env}}\nService: {{service}}\nSuspicious Requests: {{value}} (last 5 minutes)\n\nIMMEDIATE ACTION REQUIRED:\n1. Review application logs\n2. Check database for unauthorized changes\n3. Block suspicious IP addresses\n4. Update WAF rules\n\nInvestigate: https://app.datadoghq.com/logs?query=service%3Agrv-api%20env%3Aprod%20sql_injection",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:security",
+    "severity:critical",
+    "attack_type:sql_injection"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 60,
+    "require_full_window": false,
+    "notify_no_data": false,
+    "renotify_interval": 15,
+    "escalation_message": "CRITICAL: SQL injection attacks continuing. Service may be compromised!",
+    "evaluation_delay": 60,
+    "thresholds": {
+      "critical": 1,
+      "warning": 0,
+      "critical_recovery": 0,
+      "warning_recovery": 0
+    }
+  },
+  "priority": 1
+}

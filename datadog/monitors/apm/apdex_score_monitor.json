@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] Apdex Score Degradation",
+  "type": "query alert",
+  "query": "avg(last_15m):apdex:trace.flask.request{service:grv-api,env:prod}.by('resource') < {{.Env.APDEX_THRESHOLD | default \"0.8\"}}",
+  "message": "Apdex score degradation detected for grv-api service.\n\nResource: {{resource.name}}\nEnvironment: {{env}}\nService: {{service}}\nCurrent Apdex: {{value}}\n\nUser satisfaction is impacted. Review performance bottlenecks.\n\nInvestigate: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Apdex score has been degraded for over 1 hour. User experience significantly impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 0.5,
+      "warning": 0.8,
+      "critical_recovery": 0.85,
+      "warning_recovery": 0.9
+    }
+  },
+  "priority": 3
+}

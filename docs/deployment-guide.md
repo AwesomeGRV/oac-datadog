@@ -419,6 +419,141 @@ logs:
 - Test disaster recovery procedures
 - Maintain configuration in version control
 
+## Advanced Configuration
+
+### Security Monitoring Setup
+
+Deploy the enhanced security monitoring:
+
+```bash
+# Deploy security monitors
+curl -X POST "https://api.datadoghq.com/api/v1/monitor" \
+    -H "Content-Type: application/json" \
+    -H "DD-API-KEY: $DD_API_KEY" \
+    -H "DD-APPLICATION-KEY: $DD_APP_KEY" \
+    -d @datadog/monitors/security/security_alerts.json
+
+curl -X POST "https://api.datadoghq.com/api/v1/monitor" \
+    -H "Content-Type: application/json" \
+    -H "DD-API-KEY: $DD_API_KEY" \
+    -H "DD-APPLICATION-KEY: $DD_APP_KEY" \
+    -d @datadog/monitors/security/sql_injection_monitor.json
+
+# Start security monitoring service
+python scripts/security-monitoring.py &
+```
+
+### Alert Automation Setup
+
+Configure advanced alert automation:
+
+```bash
+# Deploy automation configuration
+cp config/alert-automation.json config/alert-automation.json.local
+# Edit the configuration with your specific settings
+
+# Start alert automation service
+python scripts/alert-automation.py &
+```
+
+### Production-Grade Monitoring
+
+Deploy additional production monitors:
+
+```bash
+# Service availability monitor
+curl -X POST "https://api.datadoghq.com/api/v1/monitor" \
+    -H "Content-Type: application/json" \
+    -H "DD-API-KEY: $DD_API_KEY" \
+    -H "DD-APPLICATION-KEY: $DD_APP_KEY" \
+    -d @datadog/monitors/apm/service_availability.json
+
+# Throughput monitoring
+curl -X POST "https://api.datadoghq.com/api/v1/monitor" \
+    -H "Content-Type: application/json" \
+    -H "DD-API-KEY: $DD_API_KEY" \
+    -H "DD-APPLICATION-KEY: $DD_APP_KEY" \
+    -d @datadog/monitors/apm/throughput_monitor.json
+
+# Disk space monitoring
+curl -X POST "https://api.datadoghq.com/api/v1/monitor" \
+    -H "Content-Type: application/json" \
+    -H "DD-API-KEY: $DD_API_KEY" \
+    -H "DD-APPLICATION-KEY: $DD_APP_KEY" \
+    -d @datadog/monitors/infrastructure/disk_space_monitor.json
+```
+
+## Production Best Practices
+
+### High Availability Setup
+
+For production environments, implement:
+
+```bash
+# Multiple agent instances for high availability
+kubectl scale deployment datadog-agent --replicas=3 -n datadog
+
+# Configure agent clustering
+kubectl patch configmap datadog-agent-cluster --patch '{"data":{"cluster_agent.enabled":"true"}}'
+```
+
+### Performance Optimization
+
+Optimize for production workloads:
+
+```python
+# Production trace sampling
+DATADOG_TRACE = {
+    'trace_sample_rate': 0.1,  # 10% sampling for high-traffic services
+    'priority_sampling': True,   # Enable priority sampling
+    'partial_flush_enabled': True,
+    'partial_flush_min_spans': 500,
+}
+
+# Production logging
+LOGGING_CONFIG = {
+    'version': 1,
+    'handlers': {
+        'datadog': {
+            'class': 'datadog.logging.DatadogHandler',
+            'level': 'INFO',
+            'formatter': 'json',
+        }
+    }
+}
+```
+
+### Cost Optimization
+
+Control Datadog costs in production:
+
+```bash
+# Set up log filtering
+cat > datadog-agent/conf.d/logs.d/conf.yaml << EOF
+logs:
+  - type: file
+    path: /var/log/app.log
+    include_patterns:
+      - "ERROR"
+      - "WARNING"
+      - "CRITICAL"
+    exclude_patterns:
+      - "DEBUG"
+      - "health_check"
+  - type: file
+    path: /var/log/access.log
+    sample_rate: 0.1  # Sample 10% of access logs
+EOF
+
+# Configure metric retention
+cat > datadog-agent/conf.d/dogstatsd.d/conf.yaml << EOF
+dogstatsd:
+  histogram_aggregates: "max,median,avg,count"
+  histogram_percentiles: "0.95"
+  metric_namespace: "grv_api"
+EOF
+```
+
 ## Support
 
 ### Documentation
@@ -426,6 +561,7 @@ logs:
 - [Datadog APM Documentation](https://docs.datadoghq.com/tracing/)
 - [Log Management Guide](https://docs.datadoghq.com/logs/)
 - [Infrastructure Monitoring](https://docs.datadoghq.com/infrastructure/)
+- [Operational Runbooks](operational-runbooks.md)
 
 ### Contact
 
@@ -440,3 +576,28 @@ For critical issues:
 2. Review system logs
 3. Contact the on-call engineer
 4. Escalate to management if needed
+
+## Production Checklist
+
+### Pre-Deployment
+- [ ] All environment variables configured
+- [ ] API keys tested and valid
+- [ ] Security monitoring enabled
+- [ ] Alert automation configured
+- [ ] Runbooks reviewed and accessible
+- [ ] Team trained on incident response
+
+### Post-Deployment
+- [ ] All monitors deployed and tested
+- [ ] Security monitoring active
+- [ ] Alert automation running
+- [ ] Log collection verified
+- [ ] Performance baselines established
+- [ ] Cost controls implemented
+
+### Ongoing Maintenance
+- [ ] Weekly monitor threshold reviews
+- [ ] Monthly security audit
+- [ ] Quarterly performance optimization
+- [ ] Annual cost analysis and optimization
+- [ ] Regular team training and drills

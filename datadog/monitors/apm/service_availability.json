@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] Service Availability Monitor",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:trace.flask.request.hits{service:grv-api,env:prod}.by('resource') < 1",
+  "message": "Service availability issue detected for grv-api. Request rate is below expected threshold.\n\nResource: {{resource.name}}\nEnvironment: {{env}}\nService: {{service}}\nCurrent RPS: {{value}}\n\nInvestigate: https://app.datadoghq.com/apm/services/grv-api?env=prod",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:availability",
+    "severity:critical"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": true,
+    "renotify_interval": 15,
+    "escalation_message": "Service has been unavailable for over 15 minutes. Immediate action required!",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 1.0,
+      "warning": 5.0,
+      "critical_recovery": 10.0,
+      "warning_recovery": 20.0
+    }
+  },
+  "priority": 1
+}

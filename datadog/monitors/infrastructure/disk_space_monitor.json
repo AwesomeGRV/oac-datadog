@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] Disk Space Critical Alert",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:system.disk.total{service:grv-api,env:prod} - avg:system.disk.used{service:grv-api,env:prod} < {{.Env.DISK_SPACE_CRITICAL | default \"10737418240\"}}",
+  "message": "Critical disk space alert for grv-api service.\n\nHost: {{host.name}}\nEnvironment: {{env}}\nService: {{service}}\nAvailable Space: {{value}} bytes\n\nIMMEDIATE ACTION REQUIRED:\n1. Clean up old logs and temporary files\n2. Archive old data\n3. Expand disk capacity\n4. Review data retention policies\n\nInvestigate: https://app.datadoghq.com/infrastructure?search=service%3Agrv-api",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:infrastructure",
+    "severity:critical"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": true,
+    "renotify_interval": 15,
+    "escalation_message": "CRITICAL: Disk space exhausted. Service may fail soon!",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 10737418240,
+      "warning": 21474836480,
+      "critical_recovery": 32212254720,
+      "warning_recovery": 53687091200
+    }
+  },
+  "priority": 1
+}

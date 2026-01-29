@@ -1,0 +1,34 @@
+{
+  "name": "[GRV-API] Database Connection Pool Exhaustion",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:postgresql.connections{service:grv-api,env:prod,state:active} / avg:postgresql.max_connections{service:grv-api,env:prod} * 100 > {{.Env.DB_CONNECTION_THRESHOLD | default \"85\"}}",
+  "message": "Database connection pool nearing exhaustion for grv-api service.\n\nEnvironment: {{env}}\nService: {{service}}\nActive Connections: {{value}}% of max pool\n\nActions Required:\n1. Check for connection leaks\n2. Review slow queries\n3. Consider increasing pool size\n4. Optimize database queries\n\nInvestigate: https://app.datadoghq.com/infrastructure/database/postgresql",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:database",
+    "severity:warning"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 30,
+    "escalation_message": "Database connection pool critically high. Service performance severely impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 95,
+      "warning": 85,
+      "critical_recovery": 70,
+      "warning_recovery": 60
+    }
+  },
+  "priority": 2
+}

@@ -1,0 +1,52 @@
+{
+  "thresholds": {
+    "failed_auth_attempts": 5,
+    "rate_limit_requests": 100,
+    "suspicious_ip_threshold": 10,
+    "data_exfiltration_bytes": 104857600,
+    "sql_injection_immediate_block": true,
+    "xss_detection_enabled": true,
+    "brute_force_window_minutes": 15,
+    "high_risk_endpoints": [
+      "/api/v1/users",
+      "/api/v1/admin",
+      "/api/v1/export",
+      "/api/v1/reports"
+    ]
+  },
+  "alerting": {
+    "webhook_url": "{{.Env.SECURITY_WEBHOOK_URL}}",
+    "slack_channel": "{{.Env.SECURITY_SLACK_CHANNEL}}",
+    "email_recipients": "{{.Env.SECURITY_EMAILS}}",
+    "pagerduty_service_key": "{{.Env.PAGERDUTY_SERVICE_KEY}}",
+    "critical_alert_channels": ["slack", "email", "pagerduty"],
+    "warning_alert_channels": ["slack", "email"]
+  },
+  "auto_response": {
+    "block_ip_duration": 3600,
+    "enable_auto_blocking": true,
+    "notify_teams": true,
+    "create_jira_ticket": true,
+    "escalate_to_management": true,
+    "blocked_ip_whitelist": [
+      "127.0.0.1",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16"
+    ]
+  },
+  "compliance": {
+    "gdpr_data_masking": true,
+    "pci_compliance": false,
+    "hipaa_compliance": false,
+    "audit_log_retention_days": 2555,
+    "security_event_retention_days": 365
+  },
+  "monitoring": {
+    "real_time_detection": true,
+    "historical_analysis": true,
+    "ml_anomaly_detection": true,
+    "threat_intelligence_feeds": true,
+    "scan_interval_seconds": 60
+  }
+}

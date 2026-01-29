@@ -1,0 +1,171 @@
+{
+  "performance_targets": {
+    "database": {
+      "query_time_p95": 100.0,
+      "connection_pool_utilization": 80.0,
+      "slow_query_threshold": 1000.0,
+      "active_connections_ratio": 0.9,
+      "index_usage_ratio": 0.95
+    },
+    "cache": {
+      "hit_rate": 90.0,
+      "memory_utilization": 85.0,
+      "eviction_rate": 5.0,
+      "operations_per_second": 10000,
+      "response_time_p95": 10.0
+    },
+    "application": {
+      "response_time_p95": 500.0,
+      "apdex_score": 0.85,
+      "error_rate": 1.0,
+      "throughput": 2000,
+      "cpu_utilization": 70.0
+    },
+    "infrastructure": {
+      "cpu_utilization": 70.0,
+      "memory_utilization": 80.0,
+      "disk_io_wait": 20.0,
+      "network_throughput": 1000000,
+      "disk_utilization": 80.0
+    },
+    "network": {
+      "latency_p95": 100.0,
+      "bandwidth_utilization": 70.0,
+      "packet_loss": 0.1,
+      "connection_time": 50.0,
+      "dns_resolution_time": 20.0
+    }
+  },
+  "optimization_rules": {
+    "database": {
+      "auto_index_creation": true,
+      "query_optimization": true,
+      "connection_pool_tuning": true,
+      "vacuum_analyze_schedule": "0 2 * * *",
+      "slow_query_log_threshold": 500,
+      "max_query_execution_time": 5000
+    },
+    "cache": {
+      "auto_warmup": true,
+      "size_optimization": true,
+      "ttl_optimization": true,
+      "compression_enabled": true,
+      "distributed_caching": true,
+      "cache_preloading": true
+    },
+    "application": {
+      "auto_scaling": true,
+      "code_optimization": false,
+      "dependency_updates": false,
+      "configuration_tuning": true,
+      "async_processing": true,
+      "request_caching": true
+    },
+    "infrastructure": {
+      "auto_scaling": true,
+      "resource_reallocation": true,
+      "load_balancing": true,
+      "performance_tuning": true,
+      "container_optimization": true,
+      "node_affinity": true
+    },
+    "network": {
+      "cdn_optimization": true,
+      "compression": true,
+      "connection_pooling": true,
+      "load_balancing": true,
+      "dns_optimization": true
+    }
+  },
+  "automation": {
+    "auto_optimize": true,
+    "require_approval_for": [
+      "schema_changes",
+      "scaling_down",
+      "cache_clearing",
+      "configuration_changes"
+    ],
+    "optimization_window": {
+      "start_hour": 1,
+      "end_hour": 5,
+      "timezone": "UTC",
+      "weekends_only": false
+    },
+    "max_automations_per_day": 10,
+    "rollback_enabled": true,
+    "testing_required": true,
+    "gradual_rollout": true
+  },
+  "monitoring": {
+    "performance_baselines": true,
+    "trend_analysis": true,
+    "anomaly_detection": true,
+    "impact_measurement": true,
+    "real_time_monitoring": true,
+    "historical_analysis": true
+  },
+  "thresholds": {
+    "critical": {
+      "performance_degradation": 50.0,
+      "error_rate_increase": 500.0,
+      "latency_increase": 200.0
+    },
+    "warning": {
+      "performance_degradation": 20.0,
+      "error_rate_increase": 100.0,
+      "latency_increase": 50.0
+    },
+    "info": {
+      "performance_degradation": 10.0,
+      "error_rate_increase": 50.0,
+      "latency_increase": 25.0
+    }
+  },
+  "strategies": {
+    "proactive": {
+      "enabled": true,
+      "predictive_scaling": true,
+      "capacity_planning": true,
+      "performance_tuning": true
+    },
+    "reactive": {
+      "enabled": true,
+      "auto_scaling": true,
+      "error_recovery": true,
+      "performance_recovery": true
+    },
+    "predictive": {
+      "enabled": true,
+      "ml_forecasting": true,
+      "trend_prediction": true,
+      "anomaly_prediction": true
+    }
+  },
+  "integration": {
+    "datadog": {
+      "apm_enabled": true,
+      "infrastructure_monitoring": true,
+      "log_management": true,
+      "synthetic_monitoring": true
+    },
+    "kubernetes": {
+      "hpa_enabled": true,
+      "vpa_enabled": true,
+      "cluster_autoscaler": true,
+      "pod_disruption_budgets": true
+    },
+    "ci_cd": {
+      "performance_testing": true,
+      "automated_deployment": true,
+      "rollback_testing": true,
+      "canary_deployments": true
+    }
+  },
+  "reporting": {
+    "performance_reports": true,
+    "optimization_recommendations": true,
+    "trend_analysis": true,
+    "capacity_planning": true,
+    "cost_optimization": true
+  }
+}

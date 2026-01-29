@@ -1,0 +1,205 @@
+{
+  "alert_rules": {
+    "service_down": {
+      "conditions": ["error_rate > 50%", "latency_p95 > 5000ms", "availability < 99%"],
+      "auto_incident": true,
+      "priority": "P1",
+      "auto_escalation": true,
+      "description": "Service is completely down or severely degraded"
+    },
+    "performance_degradation": {
+      "conditions": ["latency_p95 > 2000ms", "apdex_score < 0.8"],
+      "auto_incident": true,
+      "priority": "P2",
+      "auto_escalation": false,
+      "description": "Service performance is degraded but functional"
+    },
+    "resource_exhaustion": {
+      "conditions": ["cpu_usage > 90%", "memory_usage > 85%", "disk_space < 10%"],
+      "auto_incident": true,
+      "priority": "P2",
+      "auto_escalation": true,
+      "description": "System resources are critically low"
+    },
+    "security_breach": {
+      "conditions": ["sql_injection", "brute_force", "data_exfiltration"],
+      "auto_incident": true,
+      "priority": "P1",
+      "auto_escalation": true,
+      "description": "Security incident detected"
+    },
+    "database_issues": {
+      "conditions": ["connection_pool_exhausted", "slow_queries", "replication_lag"],
+      "auto_incident": true,
+      "priority": "P2",
+      "auto_escalation": false,
+      "description": "Database performance or connectivity issues"
+    }
+  },
+  "automation_rules": {
+    "auto_restart_service": {
+      "trigger": "service_down",
+      "conditions": ["error_rate > 80%", "no_recent_deploys"],
+      "action": "restart_service",
+      "cooldown_minutes": 15,
+      "description": "Automatically restart service when completely down"
+    },
+    "auto_scale_up": {
+      "trigger": "resource_exhaustion",
+      "conditions": ["cpu_usage > 95%", "memory_usage > 90%"],
+      "action": "scale_horizontal",
+      "cooldown_minutes": 10,
+      "description": "Scale up service when resources exhausted"
+    },
+    "auto_rollback": {
+      "trigger": "recent_deploy_issues",
+      "conditions": ["error_rate_spike > 50%", "within_30min_of_deploy"],
+      "action": "rollback_deployment",
+      "cooldown_minutes": 30,
+      "description": "Rollback deployment if issues detected"
+    },
+    "auto_clear_cache": {
+      "trigger": "performance_degradation",
+      "conditions": ["cache_hit_rate < 50%", "high_memory_usage"],
+      "action": "clear_cache",
+      "cooldown_minutes": 20,
+      "description": "Clear cache when performance degraded"
+    },
+    "auto_block_ip": {
+      "trigger": "security_breach",
+      "conditions": ["sql_injection", "brute_force"],
+      "action": "block_malicious_ip",
+      "cooldown_minutes": 5,
+      "description": "Block malicious IP addresses immediately"
+    }
+  },
+  "escalation_policies": {
+    "P1": {
+      "levels": [
+        {
+          "delay_minutes": 0,
+          "notify": ["oncall_engineer", "team_lead"],
+          "channels": ["slack", "pagerduty", "email"]
+        },
+        {
+          "delay_minutes": 5,
+          "notify": ["engineering_manager"],
+          "channels": ["slack", "pagerduty", "email"]
+        },
+        {
+          "delay_minutes": 15,
+          "notify": ["vp_engineering", "cto"],
+          "channels": ["slack", "pagerduty", "email"]
+        },
+        {
+          "delay_minutes": 30,
+          "notify": ["executive_team", "ceo"],
+          "channels": ["slack", "pagerduty", "email"]
+        }
+      ]
+    },
+    "P2": {
+      "levels": [
+        {
+          "delay_minutes": 0,
+          "notify": ["oncall_engineer"],
+          "channels": ["slack", "email"]
+        },
+        {
+          "delay_minutes": 15,
+          "notify": ["team_lead"],
+          "channels": ["slack", "email"]
+        },
+        {
+          "delay_minutes": 60,
+          "notify": ["engineering_manager"],
+          "channels": ["slack", "pagerduty", "email"]
+        }
+      ]
+    },
+    "P3": {
+      "levels": [
+        {
+          "delay_minutes": 0,
+          "notify": ["oncall_engineer"],
+          "channels": ["slack"]
+        },
+        {
+          "delay_minutes": 120,
+          "notify": ["team_lead"],
+          "channels": ["slack", "email"]
+        }
+      ]
+    },
+    "P4": {
+      "levels": [
+        {
+          "delay_minutes": 0,
+          "notify": ["oncall_engineer"],
+          "channels": ["slack"]
+        }
+      ]
+    }
+  },
+  "notification_channels": {
+    "slack": {
+      "webhook_url": "{{.Env.SLACK_WEBHOOK_URL}}",
+      "channels": {
+        "critical": "#incidents-critical",
+        "warning": "#incidents-warning",
+        "info": "#incidents-info"
+      },
+      "mention_groups": {
+        "P1": ["@here", "@oncall"],
+        "P2": ["@oncall"],
+        "P3": [],
+        "P4": []
+      }
+    },
+    "pagerduty": {
+      "service_key": "{{.Env.PAGERDUTY_SERVICE_KEY}}",
+      "escalation_policy": "{{.Env.PAGERDUTY_ESCALATION_POLICY}}",
+      "severity_mapping": {
+        "P1": "critical",
+        "P2": "error",
+        "P3": "warning",
+        "P4": "info"
+      }
+    },
+    "email": {
+      "smtp_server": "{{.Env.SMTP_SERVER}}",
+      "smtp_port": 587,
+      "smtp_username": "{{.Env.SMTP_USERNAME}}",
+      "smtp_password": "{{.Env.SMTP_PASSWORD}}",
+      "recipients": {
+        "critical": "{{.Env.CRITICAL_EMAIL_RECIPIENTS}}",
+        "warning": "{{.Env.WARNING_EMAIL_RECIPIENTS}}",
+        "info": "{{.Env.INFO_EMAIL_RECIPIENTS}}"
+      }
+    },
+    "teams": {
+      "webhook_url": "{{.Env.TEAMS_WEBHOOK_URL}}",
+      "enabled": false
+    }
+  },
+  "automation_settings": {
+    "enable_auto_automation": true,
+    "require_approval_for": ["rollback_deployment", "scale_horizontal"],
+    "automation_window": {
+      "start_hour": 9,
+      "end_hour": 18,
+      "timezone": "UTC",
+      "weekends_only": false
+    },
+    "max_automations_per_hour": 10,
+    "automation_cooldown_minutes": 5
+  },
+  "incident_management": {
+    "auto_create_jira_ticket": true,
+    "jira_project": "INC",
+    "auto_create_postmortem": true,
+    "postmortem_template": "postmortem-template.md",
+    "require_postmortem_for": ["P1", "P2"],
+    "incident_retention_days": 365
+  }
+}
