@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Distributed Tracing Health Monitor",
+  "type": "query alert",
+  "query": "sum(last_10m):sum:trace.django.request.hits{service:grv-api,env:prod,!trace_id:*} > {{.Env.MISSING_TRACE_THRESHOLD | default \"50\"}} OR sum(last_10m):sum:trace.django.request.hits{service:grv-api,env:prod,!parent_id:*} > {{.Env.MISSING_PARENT_THRESHOLD | default \"100\"}}",
+  "message": "Distributed tracing health issues detected for grv-api service.\n\nEnvironment: {{env}}\nService: {{service}}\nTracing Issues:\n- Missing trace IDs: {{trace.django.request.hits:!trace_id:*}} requests\n- Missing parent IDs: {{trace.django.request.hits:!parent_id:*}} requests\n- May indicate tracing configuration issues\n\nImpact Analysis:\n- Reduced observability and debugging capability\n- Difficult to trace requests across services\n- May impact distributed system monitoring\n- Performance analysis may be incomplete\n\nInvestigation Steps:\n1. Check ddtrace configuration and version\n2. Verify tracing headers propagation\n3. Review application startup logs\n4. Check for sampling rate issues\n5. Validate tracing agent connectivity\n\nTracing Dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:tracing_health",
+    "observability:true"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Distributed tracing health issues persist. Observability capabilities may be severely reduced.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 200,
+      "warning": 50,
+      "critical_recovery": 10,
+      "warning_recovery": 5
+    }
+  },
+  "priority": 3
+}

@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Celery Queue Depth Monitor",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:celery.queue.length{service:grv-api,env:prod}.by('celery.queue') > {{.Env.QUEUE_DEPTH_THRESHOLD | default \"1000\"}}",
+  "message": "High Celery queue depth detected.\n\nQueue: {{celery.queue}}\nQueue Depth: {{value}} tasks\nEnvironment: {{env}}\nService: {{service}}\n\nQueue Performance Impact:\n- Tasks may be delayed significantly\n- Potential worker capacity issues\n- Risk of task timeouts and failures\n\nInvestigation Steps:\n1. Check queue status: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance\n2. Review worker capacity and scaling\n3. Check for stuck or failed tasks\n4. Analyze task execution patterns\n5. Consider scaling workers or optimizing tasks\n\nQueue Dashboard: https://app.datadoghq.com/apm/services/grv-api/resources?env=prod&resource=celery",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:celery_queue_depth",
+    "component:background_jobs"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Celery queue depth remains high. Background job processing severely delayed.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 5000,
+      "warning": 1000,
+      "critical_recovery": 500,
+      "warning_recovery": 200
+    }
+  },
+  "priority": 2
+}

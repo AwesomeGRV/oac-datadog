@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Service Tagging Compliance Monitor",
+  "type": "query alert",
+  "query": "sum(last_15m):count(distinct:service){service:grv-api,env:prod,!owner:grv-team} > 0 OR sum(last_15m):count(distinct:service){service:grv-api,env:prod,!team:backend} > 0 OR sum(last_15m):count(distinct:service){service:grv-api,env:prod,!version:*} > 0",
+  "message": "Service tagging compliance issue detected for grv-api.\n\nEnvironment: {{env}}\nService: {{service}}\nCompliance Issues:\n- Missing required tags detected\n- Inconsistent tagging across services\n- May impact monitoring and alerting\n\nRequired Tags for Compliance:\n- service: grv-api ✓\n- env: prod ✓\n- version: {{version}} (MISSING)\n- team: backend (MISSING)\n- owner: grv-team (MISSING)\n\nImpact Analysis:\n- Reduced monitoring effectiveness\n- Difficult to filter and group metrics\n- May break automated processes\n- SLA tracking may be inaccurate\n\nRemediation Steps:\n1. Update ddtrace configuration\n2. Ensure proper environment variables\n3. Verify deployment scripts include tags\n4. Check application instrumentation\n5. Validate tag propagation\n\nTagging Guide: https://docs.datadoghq.com/getting_started/tagging/",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:compliance",
+    "severity:warning",
+    "metric:tagging_compliance"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 1440,
+    "escalation_message": "Service tagging compliance issues persist. Monitoring effectiveness may be reduced.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 10,
+      "warning": 1,
+      "critical_recovery": 0,
+      "warning_recovery": 0
+    }
+  },
+  "priority": 4
+}

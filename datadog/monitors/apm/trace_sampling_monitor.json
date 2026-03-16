@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Trace Sampling Rate Monitor",
+  "type": "query alert",
+  "query": "sum(last_5m):sum:trace.django.request.hits{service:grv-api,env:prod} / sum(last_5m):sum:nginx.http.requests.count{service:grv-api,env:prod} * 100 < {{.Env.TRACE_SAMPLING_THRESHOLD | default \"10.0\"}}",
+  "message": "Low trace sampling rate detected for grv-api service.\n\nEnvironment: {{env}}\nService: {{service}}\nTrace Sampling Rate: {{value}}%\nTotal Requests: {{nginx.http.requests.count}}\nTraced Requests: {{trace.django.request.hits}}\n\nSampling Impact Analysis:\n- Low visibility into request patterns\n- May miss critical performance issues\n- Reduced debugging capability\n- Incomplete observability coverage\n\nInvestigation Steps:\n1. Check ddtrace sampling configuration\n2. Verify sampling rate settings\n3. Review agent configuration\n4. Check for sampling rule conflicts\n5. Consider adjusting sampling strategy\n\nTracing Configuration: https://app.datadoghq.com/apm/services/grv-api?env=prod",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:trace_sampling",
+    "observability:true"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Trace sampling rate remains low. Observability coverage may be insufficient.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 5.0,
+      "warning": 10.0,
+      "critical_recovery": 15.0,
+      "warning_recovery": 20.0
+    }
+  },
+  "priority": 3
+}

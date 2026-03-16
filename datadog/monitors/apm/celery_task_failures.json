@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Celery Task Failure Rate Monitor",
+  "type": "query alert",
+  "query": "sum(last_10m):sum:trace.celery.task.errors{service:grv-api,env:prod}.by('celery.task_name') / sum(last_10m):sum:trace.celery.task.hits{service:grv-api,env:prod}.by('celery.task_name') * 100 > {{.Env.CELERY_FAILURE_THRESHOLD | default \"10.0\"}}",
+  "message": "High Celery task failure rate detected.\n\nTask: {{celery.task_name}}\nFailure Rate: {{value}}%\nFailed Tasks: {{trace.celery.task.errors}}\nTotal Tasks: {{trace.celery.task.hits}}\nEnvironment: {{env}}\nService: {{service}}\n\nTask Failure Impact:\n- Background jobs not completing successfully\n- Potential data consistency issues\n- May require manual intervention or retry\n\nInvestigation Steps:\n1. Check task failures: https://app.datadoghq.com/apm/services/grv-api/resources/{{celery.task_name}}?env=prod&view=errors\n2. Review task error logs and stack traces\n3. Check for external service dependencies\n4. Analyze failure patterns and root causes\n5. Consider implementing better error handling\n\nFailure Dashboard: https://app.datadoghq.com/apm/services/grv-api/resources/{{celery.task_name}}?env=prod&view=errors",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:celery_task_failures",
+    "component:background_jobs"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Celery task failure rate remains high. Background job reliability severely impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 25.0,
+      "warning": 10.0,
+      "critical_recovery": 5.0,
+      "warning_recovery": 2.0
+    }
+  },
+  "priority": 2
+}

@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Detailed Throughput Monitor - Request Volume Tracking",
+  "type": "query alert",
+  "query": "sum(last_5m):sum:trace.django.request.hits{service:grv-api,env:prod}.by('django.view','http.method') < {{.Env.THROUGHPUT_MIN_THRESHOLD | default \"10\"}} OR sum(last_5m):sum:trace.django.request.hits{service:grv-api,env:prod}.by('django.view','http.method') > {{.Env.THROUGHPUT_MAX_THRESHOLD | default \"10000\"}}",
+  "message": "Abnormal throughput detected for grv-api endpoints.\n\nEndpoint: {{django.view}}\nMethod: {{http.method}}\nRequest Volume: {{value}} requests (last 5 minutes)\nEnvironment: {{env}}\nService: {{service}}\n\nInvestigation Steps:\n1. Check for traffic anomalies or DDoS attacks\n2. Verify load balancer configuration\n3. Review application scaling policies\n4. Check for caching issues\n5. Monitor infrastructure capacity\n\nThroughput Dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:throughput"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Throughput anomaly persists. May indicate scaling issues or traffic problems.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical_low": 5,
+      "warning_low": 10,
+      "critical_high": 15000,
+      "warning_high": 10000
+    }
+  },
+  "priority": 3
+}

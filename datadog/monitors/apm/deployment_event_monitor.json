@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Deployment Event Monitor",
+  "type": "event alert",
+  "query": "events('source:deploy env:prod service:grv-api').rollup('count', 300) > 0",
+  "message": "Deployment event detected for grv-api service.\n\nEnvironment: {{env}}\nService: {{service}}\nDeployment Time: {{timestamp}}\nDeployer: {{username}}\nVersion: {{version}}\nGit SHA: {{git.sha}}\n\nDeployment Impact Analysis:\n- Monitor error rates for next 30 minutes\n- Check latency metrics for performance regression\n- Verify service availability\n- Review user experience metrics\n\nPost-Deployment Checklist:\n1. Check service health: https://app.datadoghq.com/apm/services/grv-api?env=prod\n2. Monitor error rates: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=errors\n3. Review performance metrics: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance\n4. Check infrastructure status\n5. Monitor user feedback and support tickets\n\nDeployment Dashboard: https://app.datadoghq.com/events?query=source%3Adeploy%20env%3Aprod%20service%3Agrv-api",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:deployment",
+    "severity:info",
+    "event_type:deployment"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 60,
+    "require_full_window": false,
+    "notify_no_data": false,
+    "renotify_interval": 0,
+    "escalation_message": "",
+    "evaluation_delay": 60,
+    "thresholds": {
+      "critical": 1,
+      "warning": 0,
+      "critical_recovery": 0,
+      "warning_recovery": 0
+    }
+  },
+  "priority": 4
+}

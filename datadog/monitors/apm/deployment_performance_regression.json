@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Deployment Performance Regression Monitor",
+  "type": "query alert",
+  "query": "avg(last_30m):avg:trace.django.request.duration{service:grv-api,env:prod}.by('version').p95(95) / avg(last_2h):avg:trace.django.request.duration{service:grv-api,env:prod,!version:{{version}}}.by('version').p95(95) > {{.Env.REGRESSION_THRESHOLD | default \"1.5\"}}",
+  "message": "Performance regression detected in recent deployment.\n\nCurrent Version: {{version}}\nCurrent P95 Latency: {{trace.django.request.duration.p95}}ms\nBaseline P95 Latency: {{#divide trace.django.request.duration.p95 value}}{{.}}ms{{/divide}}\nRegression Factor: {{value}}x\nEnvironment: {{env}}\nService: {{service}}\n\nPerformance Regression Impact:\n- User experience significantly degraded\n- May indicate inefficient code changes\n- Potential resource contention issues\n\nInvestigation Steps:\n1. Review recent code changes in version {{version}}\n2. Check database query performance\n3. Analyze external API dependencies\n4. Review infrastructure resource usage\n5. Consider performance optimization or rollback\n\nPerformance Dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:deployment",
+    "severity:warning",
+    "event_type:performance_regression"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Performance regression persists. Consider rollback or immediate optimization.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 2.0,
+      "warning": 1.5,
+      "critical_recovery": 1.2,
+      "warning_recovery": 1.1
+    }
+  },
+  "priority": 2
+}

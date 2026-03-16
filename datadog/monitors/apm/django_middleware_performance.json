@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Django Middleware Performance Monitor",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:trace.django.middleware.duration{service:grv-api,env:prod}.by('django.middleware').p95(95) > {{.Env.MIDDLEWARE_THRESHOLD | default \"500\"}}",
+  "message": "Django middleware performance degradation detected.\n\nMiddleware: {{django.middleware}}\nP95 Duration: {{trace.django.middleware.duration.p95}}ms\nEnvironment: {{env}}\nService: {{service}}\n\nMiddleware Performance Impact:\n- High middleware processing times affecting all requests\n- May indicate inefficient authentication/authorization logic\n- Potential bottlenecks in request preprocessing\n\nInvestigation Steps:\n1. Check middleware performance: https://app.datadoghq.com/apm/services/grv-api/resources?env=prod&resource=middleware\n2. Review middleware code for optimization opportunities\n3. Check external service calls in middleware\n4. Analyze authentication/authorization efficiency\n5. Consider middleware optimization or reordering\n\nMiddleware Dashboard: https://app.datadoghq.com/apm/services/grv-api/resources?env=prod&resource=middleware",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:django_middleware",
+    "component:middleware"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Django middleware performance continues to degrade. All requests may be impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 1000.0,
+      "warning": 500.0,
+      "critical_recovery": 200.0,
+      "warning_recovery": 100.0
+    }
+  },
+  "priority": 3
+}

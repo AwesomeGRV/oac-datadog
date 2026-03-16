@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Latency Anomaly Detection - ML-Based",
+  "type": "query alert",
+  "query": "avg(last_1h):anomalies(avg:trace.django.request.duration{service:grv-api,env:prod}, 'agile', 2, direction='both', interval=60, alert_window='last_15m') > 0",
+  "message": "Latency anomaly detected for grv-api service.\n\nService: {{service}}\nEnvironment: {{env}}\nAnomaly Score: {{value}}\nCurrent Latency: {{trace.django.request.duration}}ms\nExpected Range: Based on historical patterns\n\nInvestigation Steps:\n1. Check for recent code deployments\n2. Review database performance metrics\n3. Check external API dependencies\n4. Analyze traffic patterns\n5. Review infrastructure resource usage\n\nDashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:latency",
+    "detection:ml_anomaly"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 90,
+    "escalation_message": "Latency anomaly persists. Performance degradation may be systemic.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 0.8,
+      "warning": 0.5,
+      "critical_recovery": 0.2,
+      "warning_recovery": 0.1
+    }
+  },
+  "priority": 3
+}

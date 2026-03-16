@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Enhanced Apdex Score Monitor - User Satisfaction",
+  "type": "query alert",
+  "query": "avg(last_15m):apdex:trace.django.request{service:grv-api,env:prod}.by('django.view') < {{.Env.APDEX_THRESHOLD | default \"0.85\"}}",
+  "message": "Low Apdex score detected for grv-api endpoints.\n\nEndpoint: {{django.view}}\nApdex Score: {{value}}\nSatisfied: {{apdex.satisfied}}%\nTolerating: {{apdex.tolerating}}%\nFrustrated: {{apdex.frustrated}}%\nEnvironment: {{env}}\nService: {{service}}\n\nUser Impact Analysis:\n- Satisfied Users (<500ms): {{apdex.satisfied}}%\n- Tolerating Users (500ms-2000ms): {{apdex.tolerating}}%\n- Frustrated Users (>2000ms): {{apdex.frustrated}}%\n\nInvestigation Steps:\n1. Review endpoint performance: https://app.datadoghq.com/apm/services/grv-api/resources/{{django.view}}?env=prod\n2. Check database query optimization\n3. Review caching strategies\n4. Analyze third-party API response times\n5. Consider performance tuning or scaling",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:apdex",
+    "user_experience:true"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Apdex score remains low. User experience is significantly degraded.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 0.70,
+      "warning": 0.85,
+      "critical_recovery": 0.90,
+      "warning_recovery": 0.95
+    }
+  },
+  "priority": 2
+}

@@ -1,0 +1,37 @@
+{
+  "name": "[GRV-API] Monthly SLA Compliance Monitor",
+  "type": "query alert",
+  "query": "avg(last_30d):avg:trace.django.request.hits{service:grv-api,env:prod,status_code:2xx OR status_code:3xx}.by('service') / avg(last_30d):avg:trace.django.request.hits{service:grv-api,env:prod}.by('service') * 100 < {{.Env.MONTHLY_SLA_THRESHOLD | default \"99.9\"}}",
+  "message": "Monthly SLA compliance at risk for grv-api service.\n\nService: {{service}}\nMonthly Availability: {{value}}%\nSLA Target: {{.Env.MONTHLY_SLA_THRESHOLD | default \"99.9\"}}%\nEnvironment: {{env}}\nDays Remaining in Month: {{#subtract 30 {{#now 'd'}}}}{{.}} days{{/subtract}}\n\nSLA Compliance Status:\n- Current Monthly Performance: {{value}}%\n- Required Minimum: {{.Env.MONTHLY_SLA_THRESHOLD | default \"99.9\"}}%\n- Risk Level: {{#if (lt value 99.5)}}HIGH{{else if (lt value 99.8)}}MEDIUM{{else}}LOW{{/if}}\n\nBusiness Impact:\n- Potential SLA breach financial penalties\n- Customer satisfaction impact\n- Service level agreement violations\n\nRequired Actions:\n1. Review monthly performance trends\n2. Identify root causes of availability issues\n3. Implement performance improvements\n4. Consider compensation for affected customers\n5. Update stakeholders on SLA status\n\nSLA Report: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:monthly_sla",
+    "sla:true",
+    "business_impact:true"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 3600,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 1440,
+    "escalation_message": "Monthly SLA at high risk of breach. Executive attention required.",
+    "evaluation_delay": 3600,
+    "thresholds": {
+      "critical": 99.0,
+      "warning": 99.9,
+      "critical_recovery": 99.95,
+      "warning_recovery": 99.98
+    }
+  },
+  "priority": 2
+}

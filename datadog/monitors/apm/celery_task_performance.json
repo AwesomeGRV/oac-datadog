@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Celery Task Performance Monitor",
+  "type": "query alert",
+  "query": "avg(last_10m):avg:trace.celery.task.duration{service:grv-api,env:prod}.by('celery.task_name').p95(95) > {{.Env.CELERY_TASK_THRESHOLD | default \"300000\"}}",
+  "message": "Celery task performance degradation detected.\n\nTask: {{celery.task_name}}\nP95 Duration: {{trace.celery.task.duration.p95}}ms\nEnvironment: {{env}}\nService: {{service}}\n\nTask Performance Impact:\n- Long-running tasks affecting queue throughput\n- Potential resource contention or inefficient processing\n- May cause task timeouts and failures\n\nInvestigation Steps:\n1. Check task performance: https://app.datadoghq.com/apm/services/grv-api/resources/{{celery.task_name}}?env=prod\n2. Review task code for optimization opportunities\n3. Check database queries within the task\n4. Analyze external API call performance\n5. Consider task splitting or optimization\n\nCelery Dashboard: https://app.datadoghq.com/apm/services/grv-api/resources?env=prod&resource=celery",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:celery_task_performance",
+    "component:background_jobs"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Celery task performance continues to degrade. Background job processing severely impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 600000.0,
+      "warning": 300000.0,
+      "critical_recovery": 120000.0,
+      "warning_recovery": 60000.0
+    }
+  },
+  "priority": 2
+}

@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Django ORM Performance Monitor",
+  "type": "query alert",
+  "query": "avg(last_10m):avg:trace.django.db.query.duration{service:grv-api,env:prod}.by('django.db.vendor','django.db.name').p95(95) > {{.Env.DB_QUERY_THRESHOLD | default \"1000\"}}",
+  "message": "Django ORM performance degradation detected.\n\nDatabase: {{django.db.vendor}}\nDatabase Name: {{django.db.name}}\nP95 Query Duration: {{trace.django.db.query.duration.p95}}ms\nEnvironment: {{env}}\nService: {{service}}\n\nDatabase Performance Impact:\n- High query response times affecting user experience\n- Potential database resource contention\n- May indicate missing indexes or inefficient queries\n\nInvestigation Steps:\n1. Check database performance: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=resources\n2. Review slow query logs\n3. Check database connection pool usage\n4. Analyze query execution plans\n5. Consider database optimization or scaling\n\nDatabase Dashboard: https://app.datadoghq.com/apm/services/grv-api/resources?env=prod&resource=database",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:django_orm",
+    "component:database"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Django ORM performance continues to degrade. Application performance severely impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 2000.0,
+      "warning": 1000.0,
+      "critical_recovery": 500.0,
+      "warning_recovery": 200.0
+    }
+  },
+  "priority": 2
+}

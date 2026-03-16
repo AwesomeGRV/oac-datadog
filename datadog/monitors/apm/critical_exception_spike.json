@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Critical Exception Spike Detection",
+  "type": "query alert",
+  "query": "sum(last_10m):sum:trace.django.request.errors{service:grv-api,env:prod,error.type:500 OR error.type:502 OR error.type:503 OR error.type:504}.by('error.type','django.view') > {{.Env.CRITICAL_ERROR_THRESHOLD | default \"20\"}}",
+  "message": "Critical exception spike detected for grv-api service.\n\nError Type: {{error.type}}\nEndpoint: {{django.view}}\nError Count: {{value}} (last 10 minutes)\nEnvironment: {{env}}\nService: {{service}}\n\nIMMEDIATE INVESTIGATION REQUIRED:\n1. Check service health: https://app.datadoghq.com/apm/services/grv-api?env=prod\n2. Review infrastructure status\n3. Check database connectivity\n4. Verify external service availability\n5. Consider emergency rollback if recent deployment\n\nError Dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=errors",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:critical",
+    "metric:critical_errors"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 30,
+    "require_full_window": false,
+    "notify_no_data": false,
+    "renotify_interval": 15,
+    "escalation_message": "CRITICAL: High volume of server errors. Service may be down or severely degraded.",
+    "evaluation_delay": 30,
+    "thresholds": {
+      "critical": 50,
+      "warning": 20,
+      "critical_recovery": 5,
+      "warning_recovery": 2
+    }
+  },
+  "priority": 1
+}

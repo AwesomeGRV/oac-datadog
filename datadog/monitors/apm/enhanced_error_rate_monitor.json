@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Enhanced Error Rate Monitor - Exception Breakdown",
+  "type": "query alert",
+  "query": "sum(last_5m):sum:trace.django.request.errors{service:grv-api,env:prod}.by('error.stack','django.view','http.method') / sum(last_5m):sum:trace.django.request.hits{service:grv-api,env:prod}.by('django.view','http.method') * 100 > {{.Env.ERROR_RATE_THRESHOLD | default \"5.0\"}}",
+  "message": "High error rate detected for grv-api endpoints.\n\nEndpoint: {{django.view}}\nMethod: {{http.method}}\nError Type: {{error.stack}}\nError Rate: {{value}}%\nTotal Errors: {{trace.django.request.errors}}\nTotal Requests: {{trace.django.request.hits}}\nEnvironment: {{env}}\nService: {{service}}\n\nImmediate Actions:\n1. Check error details: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=errors\n2. Review recent deployments for regressions\n3. Check database connectivity\n4. Verify external service dependencies\n5. Review application logs for stack traces",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:critical",
+    "metric:error_rate"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 60,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 30,
+    "escalation_message": "CRITICAL: Error rate remains high. Service may be experiencing systemic failures.",
+    "evaluation_delay": 60,
+    "thresholds": {
+      "critical": 10.0,
+      "warning": 5.0,
+      "critical_recovery": 1.0,
+      "warning_recovery": 0.5
+    }
+  },
+  "priority": 1
+}

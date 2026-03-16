@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Comprehensive Latency Monitor - P95/P99 by Endpoint",
+  "type": "query alert",
+  "query": "avg(last_15m):avg:trace.django.request.duration{service:grv-api,env:prod}.by('django.view','http.method').p95(95) > {{.Env.LATENCY_P95_THRESHOLD | default \"2000\"}} OR avg(last_15m):avg:trace.django.request.duration{service:grv-api,env:prod}.by('django.view','http.method').p99(99) > {{.Env.LATENCY_P99_THRESHOLD | default \"5000\"}}",
+  "message": "High latency detected for grv-api endpoints.\n\nEndpoint: {{django.view}}\nMethod: {{http.method}}\nP95 Latency: {{trace.django.request.duration.p95}}ms\nP99 Latency: {{trace.django.request.duration.p99}}ms\nEnvironment: {{env}}\nService: {{service}}\n\nInvestigation Steps:\n1. Check APM Service Dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod\n2. Review endpoint performance: https://app.datadoghq.com/apm/services/grv-api/resources/{{django.view}}?env=prod\n3. Check database query performance\n4. Verify external API response times\n5. Review recent deployments for performance regressions",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:latency"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "CRITICAL: Latency continues to exceed thresholds. User experience severely impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 5000.0,
+      "warning": 2000.0,
+      "critical_recovery": 1000.0,
+      "warning_recovery": 500.0
+    }
+  },
+  "priority": 2
+}

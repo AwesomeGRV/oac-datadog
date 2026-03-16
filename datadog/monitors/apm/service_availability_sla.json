@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Service Availability Monitor - SLA Tracking",
+  "type": "query alert",
+  "query": "sum(last_5m):sum:trace.django.request.hits{service:grv-api,env:prod,status_code:2xx OR status_code:3xx}.by('django.view') / sum(last_5m):sum:trace.django.request.hits{service:grv-api,env:prod}.by('django.view') * 100 < {{.Env.AVAILABILITY_THRESHOLD | default \"99.0\"}}",
+  "message": "Service availability below SLA threshold for grv-api endpoints.\n\nEndpoint: {{django.view}}\nAvailability: {{value}}%\nSuccessful Requests: {{trace.django.request.hits:2xx,3xx}}\nTotal Requests: {{trace.django.request.hits}}\nEnvironment: {{env}}\nService: {{service}}\nSLA Target: {{.Env.SLA_TARGET | default \"99.9\"}}%\n\nSLA Impact Analysis:\n- Current Availability: {{value}}%\n- SLA Target: {{.Env.SLA_TARGET | default \"99.9\"}}%\n- Downtime this period: {{#subtract 100 value}}{{.}}%{{/subtract}}\n\nImmediate Actions:\n1. Check service health: https://app.datadoghq.com/apm/services/grv-api?env=prod\n2. Review error rates and types\n3. Check infrastructure status\n4. Verify database connectivity\n5. Consider emergency rollback if recent deployment\n\nSLA Dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:critical",
+    "metric:availability",
+    "sla:true"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 60,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 30,
+    "escalation_message": "CRITICAL: Service availability continues to violate SLA. Immediate intervention required.",
+    "evaluation_delay": 60,
+    "thresholds": {
+      "critical": 98.0,
+      "warning": 99.0,
+      "critical_recovery": 99.5,
+      "warning_recovery": 99.8
+    }
+  },
+  "priority": 1
+}

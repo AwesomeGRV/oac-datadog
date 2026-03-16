@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] Django View Performance Monitor",
+  "type": "query alert",
+  "query": "avg(last_5m):avg:trace.django.view.duration{service:grv-api,env:prod}.by('django.view','http.method').p95(95) > {{.Env.VIEW_DURATION_THRESHOLD | default \"1500\"}}",
+  "message": "Django view performance degradation detected.\n\nView: {{django.view}}\nMethod: {{http.method}}\nP95 Duration: {{trace.django.view.duration.p95}}ms\nEnvironment: {{env}}\nService: {{service}}\n\nView Performance Impact:\n- High view response times affecting user experience\n- May indicate inefficient business logic\n- Potential bottlenecks in view processing\n\nInvestigation Steps:\n1. Check view performance: https://app.datadoghq.com/apm/services/grv-api/resources/{{django.view}}?env=prod\n2. Review view code for optimization opportunities\n3. Check database queries within the view\n4. Analyze template rendering performance\n5. Consider caching strategies\n\nView Dashboard: https://app.datadoghq.com/apm/services/grv-api/resources/{{django.view}}?env=prod",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:django_view",
+    "component:application"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 60,
+    "escalation_message": "Django view performance continues to degrade. User experience significantly impacted.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 3000.0,
+      "warning": 1500.0,
+      "critical_recovery": 800.0,
+      "warning_recovery": 400.0
+    }
+  },
+  "priority": 2
+}

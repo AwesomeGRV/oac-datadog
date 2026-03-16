@@ -1,0 +1,35 @@
+{
+  "name": "[GRV-API] Deployment Rollback Detection",
+  "type": "query alert",
+  "query": "sum(last_30m):sum:trace.django.request.errors{service:grv-api,env:prod}.by('version') / sum(last_30m):sum:trace.django.request.hits{service:grv-api,env:prod}.by('version') * 100 > {{.Env.ROLLBACK_THRESHOLD | default \"15.0\"}} AND sum(last_30m):sum:trace.django.request.duration{service:grv-api,env:prod}.by('version').p95(95) > {{.Env.ROLLBACK_LATENCY_THRESHOLD | default \"3000\"}}",
+  "message": "Potential deployment rollback detected for grv-api service.\n\nVersion: {{version}}\nError Rate: {{value}}%\nP95 Latency: {{trace.django.request.duration.p95}}ms\nEnvironment: {{env}}\nService: {{service}}\n\nRollback Indicators:\n- High error rate post-deployment\n- Significant latency degradation\n- Performance regression detected\n\nImmediate Actions Required:\n1. Consider automatic rollback to previous version\n2. Check deployment logs for errors\n3. Review recent code changes\n4. Verify database migrations\n5. Monitor user impact and support tickets\n\nRollback Decision:\n- If error rate > 20%: Immediate rollback recommended\n- If latency > 5s: Consider rollback\n- If both metrics degraded: Emergency rollback\n\nDeployment Dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod&view=performance",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:deployment",
+    "severity:critical",
+    "event_type:rollback"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 60,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 15,
+    "escalation_message": "CRITICAL: Deployment performance severely degraded. Emergency rollback recommended immediately.",
+    "evaluation_delay": 60,
+    "thresholds": {
+      "critical": 25.0,
+      "warning": 15.0,
+      "critical_recovery": 5.0,
+      "warning_recovery": 2.0
+    }
+  },
+  "priority": 1
+}

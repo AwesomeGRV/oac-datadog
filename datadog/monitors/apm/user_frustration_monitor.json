@@ -1,0 +1,36 @@
+{
+  "name": "[GRV-API] User Frustration Rate Monitor",
+  "type": "query alert",
+  "query": "avg(last_10m):avg:apdex.frustrated{service:grv-api,env:prod}.by('django.view') * 100 > {{.Env.FRUSTRATION_THRESHOLD | default \"10.0\"}}",
+  "message": "High user frustration rate detected for grv-api endpoints.\n\nEndpoint: {{django.view}}\nFrustrated Users: {{value}}%\nEnvironment: {{env}}\nService: {{service}}\n\nUser Experience Impact:\n- {{value}}% of users are experiencing response times > 2 seconds\n- This may lead to user abandonment and poor satisfaction\n\nImmediate Actions:\n1. Check performance dashboard: https://app.datadoghq.com/apm/services/grv-api?env=prod\n2. Review slow traces for the endpoint\n3. Check database and external API performance\n4. Consider immediate optimization or scaling\n5. Monitor user feedback and support tickets\n\nPerformance Analysis: https://app.datadoghq.com/apm/services/grv-api/resources/{{django.view}}?env=prod",
+  "tags": [
+    "service:grv-api",
+    "env:prod",
+    "team:backend",
+    "owner:grv-team",
+    "monitor_type:apm",
+    "severity:warning",
+    "metric:user_frustration",
+    "user_experience:true"
+  ],
+  "options": {
+    "notify_audit": false,
+    "locked": false,
+    "timeout_h": 0,
+    "silenced": {},
+    "include_tags": true,
+    "new_host_delay": 300,
+    "require_full_window": true,
+    "notify_no_data": false,
+    "renotify_interval": 45,
+    "escalation_message": "User frustration rate remains high. Immediate performance optimization required.",
+    "evaluation_delay": 300,
+    "thresholds": {
+      "critical": 20.0,
+      "warning": 10.0,
+      "critical_recovery": 5.0,
+      "warning_recovery": 2.0
+    }
+  },
+  "priority": 2
+}
